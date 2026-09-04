@@ -56,6 +56,46 @@ Creacióm rápida de archivos
 
 Al intentar acceder a un archivo inexistente, podemos darle Ctrl+ click  automáticamente vidual me crea un nuevo archivo como tal, y ya luego aplicando el mismo comando me lleva directamente al archivo nuevo que visuaul me creo.
 
+Definiciones 
+Con el cursor encima de cada función podemos “ojear” que hace y para que sirve 
+Pero con Ctrl + cursor  y así nos da una función mas específica al momento 
+Pero si querermos saber donde esta exactamente la definición de la función 
+Presionamos Ctrl + clic  y esto nos lleva directamente. Y con Alt + F12  nos deja ver donde esta alojada la función sin salir nos del archivo principal.
+Adicionalmente con Ctrl + w  podemos cerrar esos archivos nuevos y si queremos abrirlos de nuevo presionamos Ctrl + shift + t .
+
+Borrar líneas 
+ Con  Ctrl + shift + k  borro la línea que desee poniendo el cursor sobre ella.
+Pero si queremos borrar de nuestro código todas las variables con ese mismo nombre presionamos Ctrl + shift + l  y esto automatcamente pone un cursor sobre las variables con ese mismo nombre, y así usamos  Ctrl + shift + k  para borralas todas alm mismo tiempo. Y por ultimo presionamos esc  para eliminar los múltiples cursores anteriormente generados.
+Deshacer y rehacer 
+ Para deshacer usamos ctrl + z  y si queremos rehacer solo presionamos ctrl + shift + +z  e inmediatamente rehacemos lo que acabamos de eliminar   
+ 
+Zen mode 
+ Es un modo cero de dsitracciones que se actuva con ctrl + k z  y se desativa d la misma manera 
+Terminal integrada 
+ En el curso muestran que para abrir la teminal se usa ctrl + ´  pero accediendo desde ctrl+shift+p  y digitando terminal, me di cuenta que ha cambiado y ahora es ctrl + alt + o .
+
+Manejo de tabs 
+ Los mas útiles son:
+ Objetivo:
+      Abrir, reabrir, cerrar tabs, cambiar de tab
+    
+tips:
+
+
+Ctrl + W            Cerrar tab
+Ctrl + K  Ctrl + W  Cerrar todas
+Ctrl + Shift + T    Reabrir anterior
+Ctrl + TAB          Cambiar de tab
+
+Tabulaciones 
+Utlilizamos el  tab  y shitf+tab  para organizar mas facilemte las líneas de código.
+
+Creación rápida de carpetas y archivos  	
+ Nos vamos directo al carpeta le damos en new folder y dentro de esa mima “creación” creamos varios archivos al tiempo, creando una estructura de directorios  ejemplo: 
+Seleccionamos new file dentro de este ponemos helpers/js/fetch.js 
+En este caso no logre crearlo ya que siempre se me creaba helpers/js y fetch.js 
+Intente varias veces que fueras las tres por separado pero no pude.
+
 
 
 Qué problemas encontré?
@@ -73,4 +113,4 @@ Repetí los comandos en la consola, prestando atención a cómo cambiaba la ruta
 Qué conceptos aún no domino?
 
 Hasta el momento el recorrido de la petición web me quedó muy claro, aunque me gustaría profundizar más adelante en las configuraciones de infraestructura exactas que diferencian un Hosting tradicional de un VPS a la hora de desplegar aplicaciones.
-AÚN NO ESTÁ TERMINADA ESTA BITÁCORA...
+        
