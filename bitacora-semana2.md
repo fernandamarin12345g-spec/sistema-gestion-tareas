@@ -113,4 +113,3 @@ Repetí los comandos en la consola, prestando atención a cómo cambiaba la ruta
 Qué conceptos aún no domino?
 
 Hasta el momento el recorrido de la petición web me quedó muy claro, aunque me gustaría profundizar más adelante en las configuraciones de infraestructura exactas que diferencian un Hosting tradicional de un VPS a la hora de desplegar aplicaciones.
-        
