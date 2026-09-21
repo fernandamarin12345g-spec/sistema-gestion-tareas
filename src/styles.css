@@ -1,9 +1,11 @@
+/* Reseteo global de márgenes, rellenos y modelo de caja */
 * {
-    margin:  0;
+    margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+/* Estilos base del cuerpo de la página y tipografía */
 body {
     font-family: 'Arial', sans-serif;
     line-height: 1.6;
@@ -11,12 +13,13 @@ body {
     color: #333333;
 }
 
-
+/* Estilos del encabezado principal con identidad corporativa */
 header {
     background-color: #7BC8E2; 
     padding: 1rem 0;
 }
 
+/* Distribución horizontal del menú de navegación con Flexbox */
 nav ul {
     list-style: none;
     display: flex;
@@ -24,6 +27,7 @@ nav ul {
     gap: 2rem;
 }
 
+/* Estilos tipográficos para los enlaces del menú */
 nav a {
     color: #333333; 
     text-decoration: none;
@@ -31,11 +35,12 @@ nav a {
     font-size: 1.1rem;
 }
 
+/* Retroalimentación visual al pasar el cursor sobre los enlaces */
 nav a:hover { 
     color: #ffffff; 
 }
 
-
+/* Estilos de la sección principal de bienvenida */
 #home {
     padding: 5rem 2rem;
     background-color: #ffffff;
@@ -43,11 +48,13 @@ nav a:hover {
     text-align: center;
 }
 
+/* Estilos de la sección de contacto */
 #contacto {
     padding: 3rem 2rem;
     text-align: center;
 }
 
+/* Estilos y alineación vertical del formulario de contacto */
 form {
     max-width: 400px;
     flex-direction: column;
@@ -57,6 +64,7 @@ form {
     margin: 2rem auto;
 }
 
+/* Estilos unificados para campos de entrada y botones */
 input, button, textarea {
     width: 100%;
     padding: 0.8rem;
@@ -65,6 +73,7 @@ input, button, textarea {
     font-size: 1rem;
 }
 
+/* Estilos base del botón de envío con color corporativo */
 button {
     background-color: #7BC8E2; 
     color: #333333; 
@@ -73,16 +82,18 @@ button {
     font-weight: bold;
 }
 
+/* Efecto hover interactivo para el botón */
 button:hover {
     background-color: #5eaac4; 
 }
 
-
+/* Estilos generales de la sección de tareas */
 #tareas {
     text-align: center;
     padding: 4rem 2rem;
 }
 
+/* Contenedor flexible para organizar las tarjetas de tareas verticalmente */
 #contenedor-tareas {
     display: flex;
     flex-direction: column;
@@ -91,6 +102,7 @@ button:hover {
     margin-top: 20px;
 }
 
+/* Estilos individuales para cada tarjeta de tarea inyectada dinámicamente */
 #contenedor-tareas p {
     background-color: #ffffff;
     padding: 15px 30px;
@@ -103,7 +115,7 @@ button:hover {
     border-left: 5px solid #7BC8E2;
 }
 
-
+/* Diseño adaptativo (Responsive Design) para dispositivos móviles */
 @media (max-width: 768px) {
     nav ul {
         flex-direction: column;

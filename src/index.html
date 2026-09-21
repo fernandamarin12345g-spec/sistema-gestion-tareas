@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- Configuración general del documento y enlace a la hoja de estilos -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Tareas</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Encabezado y barra de navegación superior -->
     <header>
         <nav>
             <ul>
@@ -17,15 +19,22 @@
             </ul>
         </nav>
     </header>
+
+    <!-- Contenido principal de la aplicación web -->
     <main>
+        <!-- Sección de bienvenida e introducción al sistema -->
         <section id="home">
             <h1>Sistema de Gestión y Seguimiento de Tareas</h1>
             <p>Bienvenido al Sistema de Gestión de Tareas. Aquí puedes organizar tus tareas y proyectos de manera eficiente.</p>
         </section>
-       <section id="tareas">
+
+        <!-- Sección dinámica donde se inyectarán las tareas mediante JavaScript -->
+        <section id="tareas">
             <h2>Mis Tareas Pendientes</h2>
             <div id="contenedor-tareas"></div>
         </section>
+
+        <!-- Sección de contacto con validación de formularios -->
         <section id="contacto">
             <h2>Contáctanos</h2>
             <form action="">
@@ -35,7 +44,8 @@
             </form>
         </section>
     </main>
+
+    <!-- Enlace al archivo de lógica y comportamiento (JavaScript) -->
     <script src="script.js"></script>
-    </body>
-    </html> 
-    
+</body>
+</html>
