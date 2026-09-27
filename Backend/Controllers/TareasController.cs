@@ -9,7 +9,7 @@ namespace Backend.Controllers
     [Route("api/[controller]")]
     public class TareasController : ControllerBase
     {
-        private readonly IConfiguration _configuracion;
+        private readonly IConfiguration _configuracion;git add Backend/Controllers/
 
         public TareasController(IConfiguration configuracion)
         {
@@ -54,7 +54,7 @@ namespace Backend.Controllers
             {
                 conexion.Open();
                 var comando = conexion.CreateCommand();
-                // Asignamos proyecto 1 y usuario 2 por defecto basándonos en tu SQL
+                // Asignamos proyecto 1 y usuario 2 por defecto basándonos en el SQL
                 comando.CommandText = "INSERT INTO Tareas (titulo, estado, id_proyecto, id_usuario_responsable) VALUES (@titulo, 'Pendiente', 1, 2)";
                 comando.Parameters.AddWithValue("@titulo", tarea.Titulo);
                 comando.ExecuteNonQuery();
@@ -96,7 +96,7 @@ namespace Backend.Controllers
         }
     }
 
-    // Clases auxiliares para recibir la información que envímos al probar
+    // Clases auxiliares para recibir la información que envíamos al probar
     public class TareaNueva
     {
         public string Titulo { get; set; }
