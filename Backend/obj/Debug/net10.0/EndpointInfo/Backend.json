@@ -1,0 +1,156 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Backend | v1",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://localhost:7019"
+    },
+    {
+      "url": "http://localhost:5293"
+    }
+  ],
+  "paths": {
+    "/api/Tareas": {
+      "get": {
+        "tags": [
+          "Tareas"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tareas"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TareaNueva"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TareaNueva"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TareaNueva"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Tareas/{id}": {
+      "put": {
+        "tags": [
+          "Tareas"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TareaActualizada"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TareaActualizada"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TareaActualizada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tareas"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TareaActualizada": {
+        "type": "object",
+        "properties": {
+          "estado": {
+            "type": "string"
+          }
+        }
+      },
+      "TareaNueva": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Tareas"
+    }
+  ]
+}
