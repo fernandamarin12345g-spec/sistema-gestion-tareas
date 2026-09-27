@@ -105,3 +105,4 @@ WHERE id_tarea = 1;
 
 DELETE FROM Etiqueta 
 WHERE id_etiqueta = 3;
+
