@@ -9,7 +9,7 @@ namespace Backend.Controllers
     [Route("api/[controller]")]
     public class TareasController : ControllerBase
     {
-        private readonly IConfiguration _configuracion;git add Backend/Controllers/
+        private readonly IConfiguration _configuracion;
 
         public TareasController(IConfiguration configuracion)
         {
@@ -21,13 +21,16 @@ namespace Backend.Controllers
         public IActionResult ObtenerTareas()
         {
             var listaTareas = new List<object>();
-            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection");
+            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
             using (var conexion = new SqliteConnection(cadenaConexion))
             {
                 conexion.Open();
                 var comando = conexion.CreateCommand();
-                comando.CommandText = "SELECT * FROM Tareas";
+                comando.CommandText = @"
+                    SELECT t.id_tarea, t.titulo, e.nombre_estado AS estado 
+                    FROM Tareas t 
+                    JOIN Estados e ON t.id_estado = e.id_estado";
 
                 using (var lector = comando.ExecuteReader())
                 {
@@ -49,13 +52,13 @@ namespace Backend.Controllers
         [HttpPost]
         public IActionResult CrearTarea([FromBody] TareaNueva tarea)
         {
-            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection");
+            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
             using (var conexion = new SqliteConnection(cadenaConexion))
             {
                 conexion.Open();
                 var comando = conexion.CreateCommand();
                 // Asignamos proyecto 1 y usuario 2 por defecto basándonos en el SQL
-                comando.CommandText = "INSERT INTO Tareas (titulo, estado, id_proyecto, id_usuario_responsable) VALUES (@titulo, 'Pendiente', 1, 2)";
+                comando.CommandText = "INSERT INTO Tareas (titulo, id_estado, id_proyecto, id_usuario_responsable) VALUES (@titulo, 1, 1, 2)";
                 comando.Parameters.AddWithValue("@titulo", tarea.Titulo);
                 comando.ExecuteNonQuery();
             }
@@ -66,12 +69,15 @@ namespace Backend.Controllers
         [HttpPut("{id}")]
         public IActionResult ActualizarTarea(int id, [FromBody] TareaActualizada tarea)
         {
-            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection");
+            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
             using (var conexion = new SqliteConnection(cadenaConexion))
             {
                 conexion.Open();
                 var comando = conexion.CreateCommand();
-                comando.CommandText = "UPDATE Tareas SET estado = @estado WHERE id_tarea = @id";
+                comando.CommandText = @"
+                    UPDATE Tareas 
+                    SET id_estado = (SELECT id_estado FROM Estados WHERE nombre_estado = @estado) 
+                    WHERE id_tarea = @id";
                 comando.Parameters.AddWithValue("@estado", tarea.Estado);
                 comando.Parameters.AddWithValue("@id", id);
                 comando.ExecuteNonQuery();
@@ -83,7 +89,7 @@ namespace Backend.Controllers
         [HttpDelete("{id}")]
         public IActionResult EliminarTarea(int id)
         {
-            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection");
+            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
             using (var conexion = new SqliteConnection(cadenaConexion))
             {
                 conexion.Open();
@@ -96,14 +102,14 @@ namespace Backend.Controllers
         }
     }
 
-    // Clases auxiliares para recibir la información que envíamos al probar
+    // Clases auxiliares protegidas contra advertencias de nulos
     public class TareaNueva
     {
-        public string Titulo { get; set; }
+        public required string Titulo { get; set; }
     }
 
     public class TareaActualizada
     {
-        public string Estado { get; set; }
+        public required string Estado { get; set; }
     }
 }

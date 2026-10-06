@@ -13,7 +13,7 @@ body {
     color: #333333;
 }
 
-/* Estilos del encabezado principal con identidad corporativa */
+/* Estilos del encabezado principal*/
 header {
     background-color: #7BC8E2; 
     padding: 1rem 0;
@@ -73,7 +73,7 @@ input, button, textarea {
     font-size: 1rem;
 }
 
-/* Estilos base del botón de envío con color corporativo */
+/* Estilos base del botón de envío*/
 button {
     background-color: #7BC8E2; 
     color: #333333; 
@@ -121,4 +121,187 @@ button:hover {
         flex-direction: column;
         gap: 1rem;
     }
+}
+
+/* Estilos para la sección de Maestro de Estados */
+#estados {
+    text-align: center;
+    padding: 4rem 2rem;
+    background-color: #f9fbfc;
+}
+
+#contenedor-estados {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/*CONTROL DE VISTAS INDEPENDIENTES (SPA)*/
+.seccion-vista {
+    display: none !important;
+}
+
+.seccion-vista.activa {
+    display: block !important;
+}
+
+/*ESTILOS: MAESTRO DE ROLES Y ELEMENTOS DINÁMICOS*/
+#roles {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.contenedor-checkbox {
+    margin: 10px auto; 
+    text-align: left; 
+    width: 100%; 
+    max-width: 400px;
+}
+
+.label-checkbox {
+    cursor: pointer;
+}
+
+.checkbox-admin {
+    width: auto; 
+    margin-right: 8px;
+}
+
+/* Estilo para la etiqueta visual de "Administrador" */
+.etiqueta-admin {
+    background-color: #ff6b6b; 
+    color: white; 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    font-size: 0.8rem; 
+    margin-left: 10px;
+}
+
+/* Estilo general para los botones de eliminar en las tarjetas */
+.btn-eliminar {
+    background-color: #ff6b6b; 
+    color: white; 
+    border: none; 
+    padding: 6px 15px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    width: auto;
+    margin-top: 10px; 
+}
+
+.btn-eliminar:hover {
+    background-color: #e55a5a; 
+}
+/* Centrado del contenedor de roles */
+#contenedor-roles {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+/*ESTILOS: MAESTRO DE USUARIOS*/
+#usuarios {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+/* El select del formulario de usuarios */
+.select-formulario {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    font-size: 1rem;
+    margin-bottom: 10px; 
+}
+
+/* Tarjeta principal del usuario */
+.tarjeta-usuario {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 650px;
+    margin: 0 auto 15px auto;
+    border-top: 5px solid #7BC8E2; 
+    text-align: left;
+}
+
+/* Encabezado de la tarjeta (Nombre, Correo, Rol y Botón eliminar) */
+.cabecera-usuario {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #eeeeee;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.etiqueta-rol {
+    background-color: #f4f7f6;
+    border: 1px solid #7BC8E2;
+    color: #333333;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    display: inline-block;
+    margin-top: 5px;
+}
+
+/* Estilos de la lista de tareas dentro del usuario */
+.titulo-tareas {
+    font-size: 0.95rem;
+    color: #555555;
+    margin-bottom: 10px;
+}
+
+.lista-tareas-usuario {
+    list-style: none;
+    padding-left: 0;
+}
+
+.item-tarea-usuario {
+    background-color: #f9fbfc;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    border-left: 3px solid #cccccc;
+}
+
+.badge-estado {
+    font-weight: bold;
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: #e2e8f0;
+}
+
+.texto-sin-tareas {
+    font-size: 0.9rem;
+    color: #888888;
+    font-style: italic;
+}
+
+/* Estilo para el botón de editar en los usuarios */
+.btn-editar {
+    background-color: #f6ad55;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+.btn-editar:hover {
+    background-color: #dd9b43;
 }

@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <!-- Configuración general del documento y enlace a la hoja de estilos -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestión de Tareas</title>
+    <title>Sistema de Gestión de Tareas - Dashboard</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,40 +11,112 @@
     <header>
         <nav>
             <ul>
-                <li><a href="#home">Inicio</a></li>
-                <li><a href="#tareas">Tareas</a></li>
-                <li><a href="#proyectos">Proyectos</a></li>
-                <li><a href="#configuracion">Configuración</a></li>
+                <li><a href="#home" onclick="mostrarSeccion('home')">Inicio</a></li>
+                <li><a href="#tareas" onclick="mostrarSeccion('tareas')">Tareas</a></li>
+                <li><a href="#estados" onclick="mostrarSeccion('estados')">Estados</a></li>
+                <li><a href="#roles" onclick="mostrarSeccion('roles')">Roles</a></li>
+                <li><a href="#usuarios" onclick="mostrarSeccion('usuarios')">Usuarios</a></li>
             </ul>
         </nav>
     </header>
 
     <!-- Contenido principal de la aplicación web -->
     <main>
-        <!-- Sección de bienvenida e introducción al sistema -->
+        <!-- Sección de bienvenida -->
         <section id="home">
             <h1>Sistema de Gestión y Seguimiento de Tareas</h1>
-            <p>Bienvenido al Sistema de Gestión de Tareas. Aquí puedes organizar tus tareas y proyectos de manera eficiente.</p>
+            <p>Plataforma centralizada para organizar responsabilidades, prioridades y estados de equipos de desarrollo.</p>
         </section>
 
-        <!-- Sección dinámica donde se inyectarán las tareas mediante JavaScript -->
-        <section id="tareas">
-            <h2>Mis Tareas Pendientes</h2>
-            <div id="contenedor-tareas"></div>
-        </section>
-
-        <!-- Sección de contacto con validación de formularios -->
-        <section id="contacto">
-            <h2>Contáctanos</h2>
-            <form action="">
-                <label for="correo">Correo Electrónico:</label>
-                <input type="email" id="correo" name="correo" required>
-                <button type="submit">Enviar</button>
+        <!-- Sección de Tareas (Dashboard conectado a la API) - TODO ENCAPSULADO AQUÍ DENTRO -->
+        <section id="tareas" class="seccion-vista">
+            <h2>Panel de Control de Tareas</h2>
+            
+            <!-- Formulario para crear tareas reales enviadas a la API -->
+            <form id="form-crear-tarea">
+                <input type="text" id="titulo-tarea" placeholder="Escribe el título de la nueva tarea..." required>
+                <button type="submit">Crear Tarea en SQLite</button>
             </form>
+
+            <!-- Botones para filtrar la lista según el estado -->
+            <div id="controles-filtro" style="margin: 20px 0; display: flex; justify-content: center; gap: 10px;">
+                <button onclick="filtrarVista('Todas')" style="width: auto; padding: 8px 15px;">Todas</button>
+                <button onclick="filtrarVista('Pendiente')" style="width: auto; padding: 8px 15px;">Pendientes</button>
+                <button onclick="filtrarVista('En progreso')" style="width: auto; padding: 8px 15px;">En Progreso</button>
+                <button onclick="filtrarVista('Terminada')" style="width: auto; padding: 8px 15px;">Terminadas</button>
+            </div>
+
+            <!-- Contenedor dinámico donde inyectaré las tareas desde el servidor -->
+            <div id="contenedor-tareas">
+                <p>Cargando tareas...</p>
+            </div>
+        </section>   
+
+        <!-- Sección de Maestro de Estados -->
+        <section id="estados" class="seccion-vista">
+            <h2>Estados</h2>
+            <p>Administración de los estados disponibles para las tareas.</p>
+
+            <form id="form-crear-estado">
+                <input type="text" id="nombre-estado" placeholder="Nombre del nuevo estado (ej. En Revisión)..." required>
+                <button type="submit">Agregar Estado</button>
+            </form>
+
+            <div id="contenedor-estados">
+                <p>Cargando estados...</p>
+            </div>
+        </section>
+
+        <!-- Sección de Maestro de Roles -->
+        <section id="roles" class="seccion-vista">
+            <h2>Roles</h2>
+            <p>Administración de niveles de acceso y permisos del sistema.</p>
+
+            <form id="form-crear-rol">
+                <input type="text" id="nombre-rol" placeholder="Nombre del rol (ej. Auditor, Cliente)..." required>
+                
+                <div class="contenedor-checkbox">
+                    <label class="label-checkbox">
+                        <input type="checkbox" id="es-admin" class="checkbox-admin"> 
+                        <strong>¿Este rol tiene permisos de Administrador?</strong>
+                    </label>
+                </div>
+
+                <button type="submit">Agregar Rol</button>
+            </form>
+
+            <div id="contenedor-roles">
+                <p>Cargando roles...</p>
+            </div>
+        </section>
+
+        <!-- Sección de Maestro de Usuarios -->
+        <section id="usuarios" class="seccion-vista">
+            <h2>Usuarios</h2>
+            <p>Administración del personal, asignación de roles y seguimiento de tareas.</p>
+
+            <form id="form-crear-usuario">
+                <input type="text" id="nombre-usuario" placeholder="Nombre completo del usuario..." required>
+                <input type="email" id="correo-usuario" placeholder="Correo electrónico..." required>
+                
+                <select id="rol-usuario" class="select-formulario" required>
+                    <option value="">Seleccionando roles disponibles...</option>
+                </select>
+
+                <!-- Contenedor para los botones del formulario -->
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                    <button type="submit" id="btn-submit-usuario">Agregar Usuario</button>
+                    <button type="button" id="btn-cancelar" onclick="cancelarEdicion()" style="display: none; background-color: #cbd5e1; color: #334155; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cancelar</button>
+                </div>
+            </form>
+
+            <div id="contenedor-usuarios">
+                <p>Cargando usuarios y sus tareas...</p>
+            </div>
         </section>
     </main>
 
-    <!-- Enlace al archivo de lógica y comportamiento (JavaScript) -->
+    <!-- Enlace al archivo de lógica y consumo de API (JavaScript) -->
     <script src="script.js"></script>
 </body>
 </html>
