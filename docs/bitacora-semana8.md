@@ -1,0 +1,26 @@
+# Bitácora Semana 8
+
+## ¿Qué aprendí?
+
+- **Integración End-to-End (Frontend a Backend):** Logré interconectar la interfaz de usuario con la API REST construida en ASP.NET Core, reemplazando por completo los datos estáticos simulados por peticiones asíncronas reales (`fetch`) que consumen, insertan, actualizan y eliminan registros directamente en la base de datos SQLite.
+- **Desarrollo del Ecosistema Completo de Controladores:** Construí e integré los controladores REST para las tablas maestras faltantes (`EstadosController` y `RolesController`), sentando las bases referenciales del sistema. Posteriormente, escalé la complejidad desarrollando el `UsuariosController`, implementando consultas relacionales avanzadas con `LEFT JOIN` y patrones de agrupamiento con Diccionarios (`Dictionary<int, UsuarioResponse>`) en C# para empaquetar los usuarios junto con sus roles y su lista anidada de tareas.
+- **Arquitectura SPA (Single Page Application) con Enrutamiento por Hash:** Implementé un controlador de navegación avanzado utilizando `window.location.hash` y el evento `DOMContentLoaded`. Comprendí cómo leer el anclaje de la URL (`#tareas`, `#estados`, `#roles`, `#usuarios`) para intercambiar las vistas dinámicamente sin recargar la página, conservando la experiencia de fluidez de una aplicación moderna.
+- **Poblamiento Dinámico de Componentes en el DOM:** Programé funciones asíncronas en JavaScript para consumir endpoints cruzados (por ejemplo, leer desde `/api/Roles` o `/api/Estados`) y utilizar esos datos para renderizar dinámicamente opciones dentro de etiquetas `<select>`, asegurando que los formularios dependan estrictamente de la base de datos.
+- **Gestión Dual y Mutación de Formularios:** Diseñé un mecanismo lógico para reutilizar un mismo formulario web con dos propósitos (Creación y Actualización). Aprendí a interceptar y reescribir el evento `onsubmit` en tiempo de ejecución, cambiando dinámicamente los textos de los botones y el método HTTP (`POST` a `PUT`) según la acción requerida.
+- **Refactorización Limpia y Modularidad Visual:** Comprendí los riesgos técnicos de inyectar estilos en línea directamente desde JavaScript (`style="..."`). Refactoricé la inyección de tarjetas de datos utilizando exclusivamente clases CSS (`className`), logrando un código JS enfocado únicamente en la lógica de negocio.
+
+## ¿Qué problemas encontré?
+
+- **Pérdida de persistencia visual en operaciones asíncronas:** Al ejecutar peticiones de actualización o eliminación dentro del ciclo CRUD, la función de recarga devolvía la interfaz a la sección de inicio por defecto, desubicando al usuario de la pestaña o módulo en el que estaba trabajando.
+- **Duplicidad de registros por relaciones multitabla (JOINs):** Al realizar consultas cruzadas entre la tabla de usuarios y sus tareas, el motor de SQLite devolvía filas repetidas del usuario por cada tarea que tenía asignada, rompiendo la estructura limpia del objeto JSON esperado por el frontend para pintar las tarjetas.
+- **Solapamiento de eventos al reutilizar formularios:** Al intentar utilizar el mismo formulario de usuarios (o roles/estados) para registrar nuevos datos y posteriormente para editarlos, los eventos del botón de envío (`submit`) entraban en conflicto de responsabilidades, provocando que el sistema intentara crear un registro nuevo en lugar de actualizarlo.
+
+## ¿Cómo los resolví?
+
+- **Lectura e intercepción de anclajes en la URL:** Actualicé la lógica del controlador de navegación para inyectar un identificador en la URL al cambiar de vista. Al recargar los datos, el sistema lee automáticamente ese hash, manteniendo a la aplicación anclada rígidamente en el módulo activo.
+- **Estrategia de agrupamiento en memoria con Diccionarios:** Resolví la duplicidad en el backend evaluando si el ID del usuario ya existía en el Diccionario de C#. Si no existía, lo registraba; si ya existía, únicamente extraía la tarea de la iteración actual y la añadía (anidaba) dentro del arreglo respectivo de ese usuario.
+- **Control programático de estados de edición:** Escribí funciones especializadas (`prepararEdicionUsuario` y `cancelarEdicion`) para mutar temporalmente la lógica del formulario. Al hacer clic en "Editar", el evento general se sobrescribe por una función que ejecuta un `PUT` específico hacia el ID seleccionado, habilitando botones auxiliares para abortar el proceso y restaurar el formulario.
+
+## ¿Qué conceptos aún no domino?
+
+Aunque el sistema es funcional y cumple con los requerimientos, siendo honesta, todavía no domino bien la escritura del código. Comprendo teóricamente cómo la API en C# empaqueta los datos y cómo el JavaScript los consume mediante `fetch`, pero me cuesta recordar la sintaxis exacta de memoria y armar la lógica relacional (como los diccionarios y los `LEFT JOIN`). También siento cierta inseguridad al manipular el DOM de forma dinámica; a veces dudo sobre el orden estricto en el que deben llamarse las funciones asíncronas para evitar problemas de sincronización en la interfaz. Mi principal desafío ahora no es conceptual, sino de fluidez técnica.
