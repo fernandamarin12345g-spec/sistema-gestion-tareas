@@ -41,7 +41,6 @@ namespace Backend.Controllers
                         {
                             id_rol = lector.GetInt32(0),
                             nombre_rol = lector.GetString(1),
-                            // Convertimos el 1 o 0 de SQLite a true o false en C#
                             is_admin = lector.GetBoolean(2)
                         });
                     }
@@ -50,63 +49,84 @@ namespace Backend.Controllers
             return Ok(listaRoles);
         }
 
-        // 2. CREAR UN ROL (POST)
+        // 2. CREAR UN ROL (POST) - Blindado contra duplicados
         [HttpPost]
         public IActionResult CrearRol([FromBody] RolNuevo nuevoRol)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
-            using (var conexion = new SqliteConnection(cadenaConexion))
+            try
             {
-                conexion.Open();
-                var comando = conexion.CreateCommand();
-                comando.CommandText = "INSERT INTO Roles (nombre_rol, is_admin) VALUES (@nombre, @isAdmin)";
-                comando.Parameters.AddWithValue("@nombre", nuevoRol.nombre_rol);
-                // Si es admin guardamos 1, si no guardamos 0
-                comando.Parameters.AddWithValue("@isAdmin", nuevoRol.is_admin ? 1 : 0);
-                comando.ExecuteNonQuery();
+                using (var conexion = new SqliteConnection(cadenaConexion))
+                {
+                    conexion.Open();
+                    var comando = conexion.CreateCommand();
+                    comando.CommandText = "INSERT INTO Roles (nombre_rol, is_admin) VALUES (@nombre, @isAdmin)";
+                    comando.Parameters.AddWithValue("@nombre", nuevoRol.nombre_rol);
+                    comando.Parameters.AddWithValue("@isAdmin", nuevoRol.is_admin ? 1 : 0);
+                    comando.ExecuteNonQuery();
+                }
+                return Ok(new { mensaje = "Rol creado exitosamente" });
             }
-            return Ok(new { mensaje = "Rol creado exitosamente" });
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                return BadRequest(new { mensaje = "El rol ya existe o entra en conflicto con un registro anterior." });
+            }
         }
 
-        // 3. ELIMINAR UN ROL (DELETE)
+        // 3. ELIMINAR UN ROL (DELETE) - Blindado contra restricciones de llave foránea
         [HttpDelete("{id}")]
         public IActionResult EliminarRol(int id)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
-            using (var conexion = new SqliteConnection(cadenaConexion))
+            try
             {
-                conexion.Open();
-                var comando = conexion.CreateCommand();
-                comando.CommandText = "DELETE FROM Roles WHERE id_rol = @id";
-                comando.Parameters.AddWithValue("@id", id);
-                comando.ExecuteNonQuery();
+                using (var conexion = new SqliteConnection(cadenaConexion))
+                {
+                    conexion.Open();
+                    var comando = conexion.CreateCommand();
+                    comando.CommandText = "DELETE FROM Roles WHERE id_rol = @id";
+                    comando.Parameters.AddWithValue("@id", id);
+                    comando.ExecuteNonQuery();
+                }
+                return Ok(new { mensaje = "Rol eliminado exitosamente" });
             }
-            return Ok(new { mensaje = "Rol eliminado exitosamente" });
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                return BadRequest(new { mensaje = "No se puede eliminar este rol porque hay usuarios asignados a él." });
+            }
         }
-        // 4. ACTUALIZAR UN ROL (PUT)
+
+        // 4. ACTUALIZAR UN ROL (PUT) - Blindado contra duplicados
         [HttpPut("{id}")]
         public IActionResult ActualizarRol(int id, [FromBody] RolNuevo rolActualizado)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
-            using (var conexion = new SqliteConnection(cadenaConexion))
+            try
             {
-                conexion.Open();
-                var comando = conexion.CreateCommand();
-                comando.CommandText = "UPDATE Roles SET nombre_rol = @nombre, is_admin = @isAdmin WHERE id_rol = @id";
-                comando.Parameters.AddWithValue("@nombre", rolActualizado.nombre_rol);
-                comando.Parameters.AddWithValue("@isAdmin", rolActualizado.is_admin ? 1 : 0);
-                comando.Parameters.AddWithValue("@id", id);
-
-                int filasAfectadas = comando.ExecuteNonQuery();
-                if (filasAfectadas == 0)
+                using (var conexion = new SqliteConnection(cadenaConexion))
                 {
-                    return NotFound(new { mensaje = "Rol no encontrado" });
+                    conexion.Open();
+                    var comando = conexion.CreateCommand();
+                    comando.CommandText = "UPDATE Roles SET nombre_rol = @nombre, is_admin = @isAdmin WHERE id_rol = @id";
+                    comando.Parameters.AddWithValue("@nombre", rolActualizado.nombre_rol);
+                    comando.Parameters.AddWithValue("@isAdmin", rolActualizado.is_admin ? 1 : 0);
+                    comando.Parameters.AddWithValue("@id", id);
+
+                    int filasAfectadas = comando.ExecuteNonQuery();
+                    if (filasAfectadas == 0)
+                    {
+                        return NotFound(new { mensaje = "Rol no encontrado" });
+                    }
                 }
+                return Ok(new { mensaje = "Rol actualizado exitosamente" });
             }
-            return Ok(new { mensaje = "Rol actualizado exitosamente" });
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                return BadRequest(new { mensaje = "El nombre del rol que intentas asignar ya está registrado." });
+            }
         }
     }
 }

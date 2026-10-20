@@ -16,7 +16,6 @@ namespace Backend.Controllers
             _configuracion = configuracion;
         }
 
-        // Clase para recibir datos al crear/editar
         public class UsuarioDto
         {
             public required string nombre { get; set; }
@@ -24,7 +23,6 @@ namespace Backend.Controllers
             public int id_rol { get; set; }
         }
 
-        // Nueva clase para estructurar la respuesta con su lista de tareas
         public class UsuarioResponse
         {
             public int id_usuario { get; set; }
@@ -32,18 +30,13 @@ namespace Backend.Controllers
             public string correo { get; set; } = string.Empty;
             public int id_rol { get; set; }
             public string nombre_rol { get; set; } = string.Empty;
-
-            // Aquí guardaremos todas las tareas asociadas a esta persona
             public List<object> tareas { get; set; } = new List<object>();
         }
 
-        // 1. LEER (GET) - Ahora agrupando tareas por usuario
         [HttpGet]
         public IActionResult ObtenerUsuarios()
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
-
-            // Usamos un diccionario para agrupar las filas de SQLite en objetos de usuario
             var diccionarioUsuarios = new Dictionary<int, UsuarioResponse>();
 
             using (var conexion = new SqliteConnection(cadenaConexion))
@@ -51,7 +44,6 @@ namespace Backend.Controllers
                 conexion.Open();
                 var comando = conexion.CreateCommand();
 
-                // Usamos LEFT JOIN en Tareas y Estados para que los usuarios sin tareas también aparezcan
                 comando.CommandText = @"
                     SELECT u.id_usuario, u.nombre, u.correo, u.id_rol, r.nombre_rol, 
                            t.id_tarea, t.titulo, e.nombre_estado 
@@ -66,7 +58,6 @@ namespace Backend.Controllers
                     {
                         int idUsuario = lector.GetInt32(0);
 
-                        // Si es la primera vez que leemos a este usuario en el ciclo, lo creamos
                         if (!diccionarioUsuarios.ContainsKey(idUsuario))
                         {
                             diccionarioUsuarios[idUsuario] = new UsuarioResponse
@@ -79,7 +70,6 @@ namespace Backend.Controllers
                             };
                         }
 
-                        // Verificamos si la fila trae una tarea (columna 5 no es nula)
                         if (!lector.IsDBNull(5))
                         {
                             diccionarioUsuarios[idUsuario].tareas.Add(new
@@ -92,55 +82,85 @@ namespace Backend.Controllers
                     }
                 }
             }
-            // Retornamos solo la lista de usuarios ya empaquetada con sus tareas adentro
             return Ok(diccionarioUsuarios.Values.ToList());
         }
 
-        // 2. CREAR (POST)
         [HttpPost]
         public IActionResult CrearUsuario([FromBody] UsuarioDto nuevoUsuario)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
-            using (var conexion = new SqliteConnection(cadenaConexion))
+            try
             {
-                conexion.Open();
-                var comando = conexion.CreateCommand();
-                comando.CommandText = "INSERT INTO Usuarios (nombre, correo, id_rol) VALUES (@nombre, @correo, @idRol)";
-                comando.Parameters.AddWithValue("@nombre", nuevoUsuario.nombre);
-                comando.Parameters.AddWithValue("@correo", nuevoUsuario.correo);
-                comando.Parameters.AddWithValue("@idRol", nuevoUsuario.id_rol);
-                comando.ExecuteNonQuery();
+                using (var conexion = new SqliteConnection(cadenaConexion))
+                {
+                    conexion.Open();
+                    var comando = conexion.CreateCommand();
+                    comando.CommandText = "INSERT INTO Usuarios (nombre, correo, id_rol) VALUES (@nombre, @correo, @idRol)";
+                    comando.Parameters.AddWithValue("@nombre", nuevoUsuario.nombre);
+                    comando.Parameters.AddWithValue("@correo", nuevoUsuario.correo);
+                    comando.Parameters.AddWithValue("@idRol", nuevoUsuario.id_rol);
+                    comando.ExecuteNonQuery();
+                }
+                return Ok(new { mensaje = "Usuario creado exitosamente" });
             }
-            return Ok(new { mensaje = "Usuario creado exitosamente" });
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                return BadRequest(new { mensaje = "El correo electrónico ya se encuentra registrado." });
+            }
         }
 
-        // 3. ACTUALIZAR (PUT)
+        // 3. ACTUALIZAR (PUT) 
         [HttpPut("{id}")]
         public IActionResult ActualizarUsuario(int id, [FromBody] UsuarioDto usuarioActualizado)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
-            using (var conexion = new SqliteConnection(cadenaConexion))
+            try
             {
-                conexion.Open();
-                var comando = conexion.CreateCommand();
-                comando.CommandText = "UPDATE Usuarios SET nombre = @nombre, correo = @correo, id_rol = @idRol WHERE id_usuario = @id";
-                comando.Parameters.AddWithValue("@nombre", usuarioActualizado.nombre);
-                comando.Parameters.AddWithValue("@correo", usuarioActualizado.correo);
-                comando.Parameters.AddWithValue("@idRol", usuarioActualizado.id_rol);
-                comando.Parameters.AddWithValue("@id", id);
-
-                int filasAfectadas = comando.ExecuteNonQuery();
-                if (filasAfectadas == 0)
+                using (var conexion = new SqliteConnection(cadenaConexion))
                 {
-                    return NotFound(new { mensaje = "Usuario no encontrado" });
+                    conexion.Open();
+
+                    // Comando 1: Verificar si el correo pertenece a otro usuario diferente
+                    using (var comandoVerificar = conexion.CreateCommand())
+                    {
+                        comandoVerificar.CommandText = "SELECT COUNT(1) FROM Usuarios WHERE correo = @correo AND id_usuario != @id";
+                        comandoVerificar.Parameters.AddWithValue("@correo", usuarioActualizado.correo);
+                        comandoVerificar.Parameters.AddWithValue("@id", id);
+
+                        long existeCorreo = (long)(comandoVerificar.ExecuteScalar() ?? 0);
+
+                        if (existeCorreo > 0)
+                        {
+                            return BadRequest(new { mensaje = "El correo electrónico ya está en uso por otro usuario." });
+                        }
+                    }
+
+                    // Comando 2: Actualizar datos de forma independiente sobre el mismo ID
+                    using (var comandoUpdate = conexion.CreateCommand())
+                    {
+                        comandoUpdate.CommandText = "UPDATE Usuarios SET nombre = @nombre, correo = @correo, id_rol = @idRol WHERE id_usuario = @id";
+                        comandoUpdate.Parameters.AddWithValue("@nombre", usuarioActualizado.nombre);
+                        comandoUpdate.Parameters.AddWithValue("@correo", usuarioActualizado.correo);
+                        comandoUpdate.Parameters.AddWithValue("@idRol", usuarioActualizado.id_rol);
+                        comandoUpdate.Parameters.AddWithValue("@id", id);
+
+                        int filasAfectadas = comandoUpdate.ExecuteNonQuery();
+                        if (filasAfectadas == 0)
+                        {
+                            return NotFound(new { mensaje = "Usuario no encontrado" });
+                        }
+                    }
                 }
+                return Ok(new { mensaje = "Usuario actualizado exitosamente" });
             }
-            return Ok(new { mensaje = "Usuario actualizado exitosamente" });
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                return BadRequest(new { mensaje = "Error de integridad en la base de datos." });
+            }
         }
 
-        // 4. ELIMINAR (DELETE)
         [HttpDelete("{id}")]
         public IActionResult EliminarUsuario(int id)
         {

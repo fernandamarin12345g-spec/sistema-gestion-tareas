@@ -2,6 +2,7 @@
 using Microsoft.Data.Sqlite;
 
 namespace Backend.Controllers
+
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -19,6 +20,7 @@ namespace Backend.Controllers
             public required string nombre_estado { get; set; }
         }
 
+        // 1. LECTURA Y RENDERIZADO (GET)
         [HttpGet]
         public IActionResult ObtenerEstados()
         {
@@ -46,36 +48,83 @@ namespace Backend.Controllers
             return Ok(listaEstados);
         }
 
+        // 2. CREAR ESTADO (POST) - 
         [HttpPost]
         public IActionResult CrearEstado([FromBody] EstadoNuevo nuevoEstado)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
-            using (var conexion = new SqliteConnection(cadenaConexion))
+            try
             {
-                conexion.Open();
-                var comando = conexion.CreateCommand();
-                comando.CommandText = "INSERT INTO Estados (nombre_estado) VALUES (@nombre)";
-                comando.Parameters.AddWithValue("@nombre", nuevoEstado.nombre_estado);
-                comando.ExecuteNonQuery();
+                using (var conexion = new SqliteConnection(cadenaConexion))
+                {
+                    conexion.Open();
+                    var comando = conexion.CreateCommand();
+                    comando.CommandText = "INSERT INTO Estados (nombre_estado) VALUES (@nombre)";
+                    comando.Parameters.AddWithValue("@nombre", nuevoEstado.nombre_estado);
+                    comando.ExecuteNonQuery();
+                }
+                return Ok(new { mensaje = "Estado creado exitosamente" });
             }
-            return Ok(new { mensaje = "Estado creado exitosamente" });
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                return BadRequest(new { mensaje = "El estado ya existe o entra en conflicto con un registro anterior." });
+            }
         }
 
+        // 3. ACTUALIZAR ESTADO (PUT) 
+        [HttpPut("{id}")]
+        public IActionResult ActualizarEstado(int id, [FromBody] EstadoNuevo estadoActualizado)
+        {
+            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
+
+            try
+            {
+                using (var conexion = new SqliteConnection(cadenaConexion))
+                {
+                    conexion.Open();
+                    var comando = conexion.CreateCommand();
+                    comando.CommandText = "UPDATE Estados SET nombre_estado = @nombre WHERE id_estado = @id";
+                    comando.Parameters.AddWithValue("@nombre", estadoActualizado.nombre_estado);
+                    comando.Parameters.AddWithValue("@id", id);
+
+                    int filasAfectadas = comando.ExecuteNonQuery();
+                    if (filasAfectadas == 0)
+                    {
+                        return NotFound(new { mensaje = "Estado no encontrado" });
+                    }
+                }
+                return Ok(new { mensaje = "Estado actualizado exitosamente" });
+            }
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                return BadRequest(new { mensaje = "El nombre que intentas asignar ya está registrado." });
+            }
+        }
+
+        // 4. ELIMINAR ESTADO (DELETE) - 
         [HttpDelete("{id}")]
         public IActionResult EliminarEstado(int id)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
 
-            using (var conexion = new SqliteConnection(cadenaConexion))
+            try
             {
-                conexion.Open();
-                var comando = conexion.CreateCommand();
-                comando.CommandText = "DELETE FROM Estados WHERE id_estado = @id";
-                comando.Parameters.AddWithValue("@id", id);
-                comando.ExecuteNonQuery();
+                using (var conexion = new SqliteConnection(cadenaConexion))
+                {
+                    conexion.Open();
+                    var comando = conexion.CreateCommand();
+                    comando.CommandText = "DELETE FROM Estados WHERE id_estado = @id";
+                    comando.Parameters.AddWithValue("@id", id);
+                    comando.ExecuteNonQuery();
+                }
+                return Ok(new { mensaje = "Estado eliminado exitosamente" });
             }
-            return Ok(new { mensaje = "Estado eliminado exitosamente" });
-        }
-    }
-}
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
+            {
+                // devolvemos un mensaje 
+                return BadRequest(new { mensaje = "No se puede eliminar este estado porque hay tareas que actualmente lo están usando. Cambia el estado de esas tareas primero." });
+            }
+        } 
+    } 
+} 

@@ -30,20 +30,29 @@
 
         <!-- Sección de Tareas (Dashboard conectado a la API) - TODO ENCAPSULADO AQUÍ DENTRO -->
         <section id="tareas" class="seccion-vista">
-            <h2>Panel de Control de Tareas</h2>
+            <h2>Tareas</h2>
             
-            <!-- Formulario para crear tareas reales enviadas a la API -->
+            <!-- Formulario para crear o editar tareas en la API -->
             <form id="form-crear-tarea">
-                <input type="text" id="titulo-tarea" placeholder="Escribe el título de la nueva tarea..." required>
-                <button type="submit">Crear Tarea en SQLite</button>
+                <input type="text" id="titulo-tarea" placeholder="Escribe el título de la tarea..." required>
+                
+                <select id="usuario-asignado-tarea" class="select-formulario" required>
+                    <option value="">Selecciona un usuario responsable...</option>
+                </select>
+
+                <!-- Selector de estado visible siempre para crear y editar -->
+                <select id="estado-tarea" class="select-formulario" required>
+                    <option value="">Selecciona el estado...</option>
+                </select>
+
+                <div class="contenedor-botones-formulario">
+                    <button type="submit" id="btn-submit-tarea">Crear Tarea</button>
+                    <button type="button" id="btn-cancelar-tarea" class="btn-cancelar" onclick="cancelarEdicionTarea()">Cancelar</button>
+                </div>
             </form>
 
-            <!-- Botones para filtrar la lista según el estado -->
-            <div id="controles-filtro" style="margin: 20px 0; display: flex; justify-content: center; gap: 10px;">
-                <button onclick="filtrarVista('Todas')" style="width: auto; padding: 8px 15px;">Todas</button>
-                <button onclick="filtrarVista('Pendiente')" style="width: auto; padding: 8px 15px;">Pendientes</button>
-                <button onclick="filtrarVista('En progreso')" style="width: auto; padding: 8px 15px;">En Progreso</button>
-                <button onclick="filtrarVista('Terminada')" style="width: auto; padding: 8px 15px;">Terminadas</button>
+           <!-- Botones dinámicos para filtrar la lista según el estado (Se inyectan desde JS) -->
+            <div id="controles-filtro" class="contenedor-filtros">
             </div>
 
             <!-- Contenedor dinámico donde inyectaré las tareas desde el servidor -->
@@ -52,14 +61,18 @@
             </div>
         </section>   
 
-        <!-- Sección de Maestro de Estados -->
+<!-- Sección de Maestro de Estados -->
         <section id="estados" class="seccion-vista">
             <h2>Estados</h2>
             <p>Administración de los estados disponibles para las tareas.</p>
 
             <form id="form-crear-estado">
                 <input type="text" id="nombre-estado" placeholder="Nombre del nuevo estado (ej. En Revisión)..." required>
-                <button type="submit">Agregar Estado</button>
+                
+                <div class="contenedor-botones-formulario">
+                    <button type="submit" id="btn-submit-estado">Agregar Estado</button>
+                    <button type="button" id="btn-cancelar-estado" class="btn-cancelar" onclick="cancelarEdicionEstado()">Cancelar</button>
+                </div>
             </form>
 
             <div id="contenedor-estados">
@@ -82,7 +95,10 @@
                     </label>
                 </div>
 
-                <button type="submit">Agregar Rol</button>
+                <div class="contenedor-botones-formulario">
+                    <button type="submit" id="btn-submit-rol">Agregar Rol</button>
+                    <button type="button" id="btn-cancelar-rol" class="btn-cancelar" onclick="cancelarEdicionRol()">Cancelar</button>
+                </div>
             </form>
 
             <div id="contenedor-roles">
@@ -90,9 +106,9 @@
             </div>
         </section>
 
-        <!-- Sección de Maestro de Usuarios -->
+        <!-- Sección Principal de Usuarios (Carpetas de Roles) -->
         <section id="usuarios" class="seccion-vista">
-            <h2>Usuarios</h2>
+            <h2>Gestión de Usuarios</h2>
             <p>Administración del personal, asignación de roles y seguimiento de tareas.</p>
 
             <form id="form-crear-usuario">
@@ -103,15 +119,29 @@
                     <option value="">Seleccionando roles disponibles...</option>
                 </select>
 
-                <!-- Contenedor para los botones del formulario -->
-                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+                <div class="contenedor-botones-formulario">
                     <button type="submit" id="btn-submit-usuario">Agregar Usuario</button>
-                    <button type="button" id="btn-cancelar" onclick="cancelarEdicion()" style="display: none; background-color: #cbd5e1; color: #334155; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cancelar</button>
+                    <button type="button" id="btn-cancelar-usuario" class="btn-cancelar" onclick="cancelarEdicionUsuario()">Cancelar</button>
                 </div>
             </form>
 
+            <h3 class="titulo-separador">Selecciona un rol para ver a su personal:</h3>
+            
+            <!-- Aquí inyectaremos las tarjetas/carpetas de los roles -->
+            <div id="contenedor-carpetas-roles" class="contenedor-grid">
+                <p>Cargando roles...</p>
+            </div>
+        </section>
+
+        <!-- Nueva Vista SPA: Detalle de Usuarios por Rol -->
+        <section id="usuarios-detalle" class="seccion-vista">
+            <h2 id="titulo-rol-seleccionado">Usuarios del Rol</h2>
+            
+            <!-- Botón para regresar a las carpetas -->
+            <button class="btn-secundario" onclick="mostrarSeccion('usuarios')">&larr; Volver a todos los roles</button>
+
             <div id="contenedor-usuarios">
-                <p>Cargando usuarios y sus tareas...</p>
+                <p>Cargando usuarios...</p>
             </div>
         </section>
     </main>

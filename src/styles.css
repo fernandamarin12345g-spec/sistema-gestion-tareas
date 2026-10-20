@@ -1,307 +1,199 @@
-/* Reseteo global de márgenes, rellenos y modelo de caja */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+/* RESET & BASE */
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* Estilos base del cuerpo de la página y tipografía */
+/* 1. EL GRID DE TODA LA PÁGINA (Layout Dashboard) */
 body {
-    font-family: 'Arial', sans-serif;
-    line-height: 1.6;
-    background-color: #f4f7f6;
-    color: #333333;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8fafc;
+    color: #334155;
+    display: grid;
+    grid-template-columns: 250px 1fr; /* Menú lateral de 250px, el resto para el contenido */
+    height: 100vh; /* Ocupa toda la pantalla */
+    overflow: hidden; /* Evita el doble scroll */
 }
 
-/* Estilos del encabezado principal*/
+/* SIDEBAR (El menú de navegación convertido a Grid lateral) */
 header {
-    background-color: #7BC8E2; 
-    padding: 1rem 0;
+    background-color: #0f172a;
+    color: white;
+    padding: 2rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    z-index: 10;
 }
 
-/* Distribución horizontal del menú de navegación con Flexbox */
+header::before {
+    content: "ESA SAS";
+    color: #38bdf8;
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 2rem;
+    letter-spacing: 2px;
+}
+
 nav ul {
     list-style: none;
     display: flex;
-    justify-content: center;
-    gap: 2rem;
+    flex-direction: column;
+    gap: 15px;
 }
 
-/* Estilos tipográficos para los enlaces del menú */
 nav a {
-    color: #333333; 
+    color: #94a3b8;
     text-decoration: none;
-    font-weight: bold;
-    font-size: 1.1rem;
+    font-weight: 600;
+    font-size: 1.05rem;
+    display: block;
+    padding: 12px 15px;
+    border-radius: 8px;
+    transition: all 0.3s;
 }
 
-/* Retroalimentación visual al pasar el cursor sobre los enlaces */
-nav a:hover { 
-    color: #ffffff; 
+nav a:hover, nav a.activo {
+    background-color: #1e293b;
+    color: #38bdf8;
+    transform: translateX(5px);
 }
 
-/* Estilos de la sección principal de bienvenida */
-#home {
-    padding: 5rem 2rem;
-    background-color: #ffffff;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    text-align: center;
+/* ÁREA PRINCIPAL DE CONTENIDO */
+main {
+    overflow-y: auto; /* Scroll exclusivo para el contenido */
+    padding: 3rem 4rem;
+    background-color: #f1f5f9;
 }
 
-/* Estilos de la sección de contacto */
-#contacto {
-    padding: 3rem 2rem;
-    text-align: center;
-}
+section h1, section h2 { color: #0f172a; margin-bottom: 10px; }
+section p { color: #64748b; margin-bottom: 30px; }
 
-/* Estilos y alineación vertical del formulario de contacto */
+/* FORMULARIOS COMUNES */
 form {
-    max-width: 400px;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    display: flex;  
-    margin: 2rem auto;
+    background: white; padding: 25px; border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column;
+    gap: 15px; max-width: 700px; margin-bottom: 30px; border: 1px solid #e2e8f0;
+}
+input, select {
+    width: 100%; padding: 12px; border: 1px solid #cbd5e1;
+    border-radius: 6px; font-size: 1rem;
+}
+input:focus, select:focus {
+    outline: none; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
 }
 
-/* Estilos unificados para campos de entrada y botones */
-input, button, textarea {
-    width: 100%;
-    padding: 0.8rem;
-    border: 1px solid #cccccc;
-    border-radius: 5px;
-    font-size: 1rem;
-}
+.label-checkbox { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.checkbox-admin { width: auto; margin: 0; }
 
-/* Estilos base del botón de envío*/
+/* BOTONES */
 button {
-    background-color: #7BC8E2; 
-    color: #333333; 
-    border: none;
-    cursor: pointer;
-    font-weight: bold;
+    background-color: #0ea5e9; color: white; border: none; padding: 12px;
+    border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.3s;
 }
+button:hover { background-color: #0284c7; }
+.contenedor-botones-formulario { display: flex; gap: 10px; }
 
-/* Efecto hover interactivo para el botón */
-button:hover {
-    background-color: #5eaac4; 
-}
+.btn-cancelar { background-color: #cbd5e1; color: #334155; display: none; }
+.btn-cancelar.visible { display: block; }
+.btn-cancelar:hover { background-color: #94a3b8; }
+.btn-secundario { background-color: #e2e8f0; color: #475569; width: auto; padding: 10px 20px; margin-bottom: 20px;}
+.btn-secundario:hover { background-color: #cbd5e1; }
 
-/* Estilos generales de la sección de tareas */
-#tareas {
-    text-align: center;
-    padding: 4rem 2rem;
-}
+.btn-editar { background-color: #f59e0b; padding: 8px 15px; }
+.btn-editar:hover { background-color: #d97706; }
+.btn-eliminar { background-color: #ef4444; padding: 8px 15px; }
+.btn-eliminar:hover { background-color: #dc2626; }
 
-/* Contenedor flexible para organizar las tarjetas de tareas verticalmente */
-#contenedor-tareas {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-    margin-top: 20px;
-}
+/* VISTAS SPA */
+.seccion-vista { display: none !important; }
+.seccion-vista.activa { display: block !important; }
+.oculto { display: none !important; }
 
-/* Estilos individuales para cada tarjeta de tarea inyectada dinámicamente */
-#contenedor-tareas p {
-    background-color: #ffffff;
-    padding: 15px 30px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    width: 80%;
-    max-width: 500px;
-    font-weight: 500;
-    color: #333333;
-    border-left: 5px solid #7BC8E2;
-}
-
-/* Diseño adaptativo (Responsive Design) para dispositivos móviles */
-@media (max-width: 768px) {
-    nav ul {
-        flex-direction: column;
-        gap: 1rem;
-    }
-}
-
-/* Estilos para la sección de Maestro de Estados */
-#estados {
-    text-align: center;
-    padding: 4rem 2rem;
-    background-color: #f9fbfc;
-}
-
-#contenedor-estados {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-    margin-top: 20px;
-}
-
-/*CONTROL DE VISTAS INDEPENDIENTES (SPA)*/
-.seccion-vista {
-    display: none !important;
-}
-
-.seccion-vista.activa {
-    display: block !important;
-}
-
-/*ESTILOS: MAESTRO DE ROLES Y ELEMENTOS DINÁMICOS*/
-#roles {
-    text-align: center;
-    padding: 4rem 2rem;
-}
-
-.contenedor-checkbox {
-    margin: 10px auto; 
-    text-align: left; 
-    width: 100%; 
-    max-width: 400px;
-}
-
-.label-checkbox {
-    cursor: pointer;
-}
-
-.checkbox-admin {
-    width: auto; 
-    margin-right: 8px;
-}
-
-/* Estilo para la etiqueta visual de "Administrador" */
-.etiqueta-admin {
-    background-color: #ff6b6b; 
-    color: white; 
-    padding: 2px 6px; 
-    border-radius: 4px; 
-    font-size: 0.8rem; 
-    margin-left: 10px;
-}
-
-/* Estilo general para los botones de eliminar en las tarjetas */
-.btn-eliminar {
-    background-color: #ff6b6b; 
-    color: white; 
-    border: none; 
-    padding: 6px 15px; 
-    border-radius: 4px; 
-    cursor: pointer; 
-    width: auto;
-    margin-top: 10px; 
-}
-
-.btn-eliminar:hover {
-    background-color: #e55a5a; 
-}
-/* Centrado del contenedor de roles */
-#contenedor-roles {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-    margin-top: 20px;
-}
-
-/*ESTILOS: MAESTRO DE USUARIOS*/
-#usuarios {
-    text-align: center;
-    padding: 4rem 2rem;
-}
-
-/* El select del formulario de usuarios */
-.select-formulario {
-    width: 100%;
-    padding: 0.8rem;
-    border: 1px solid #cccccc;
-    border-radius: 5px;
-    font-size: 1rem;
-    margin-bottom: 10px; 
-}
-
-/* Tarjeta principal del usuario */
-.tarjeta-usuario {
-    background-color: #ffffff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    width: 90%;
-    max-width: 650px;
-    margin: 0 auto 15px auto;
-    border-top: 5px solid #7BC8E2; 
-    text-align: left;
-}
-
-/* Encabezado de la tarjeta (Nombre, Correo, Rol y Botón eliminar) */
-.cabecera-usuario {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    border-bottom: 1px solid #eeeeee;
-    padding-bottom: 15px;
-    margin-bottom: 15px;
-}
-
-.etiqueta-rol {
-    background-color: #f4f7f6;
-    border: 1px solid #7BC8E2;
-    color: #333333;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    display: inline-block;
-    margin-top: 5px;
-}
-
-/* Estilos de la lista de tareas dentro del usuario */
-.titulo-tareas {
-    font-size: 0.95rem;
-    color: #555555;
-    margin-bottom: 10px;
-}
-
-.lista-tareas-usuario {
-    list-style: none;
-    padding-left: 0;
-}
-
-.item-tarea-usuario {
-    background-color: #f9fbfc;
-    padding: 8px 12px;
-    border-radius: 4px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.9rem;
-    border-left: 3px solid #cccccc;
-}
-
+/* BADGES Y ETIQUETAS */
 .badge-estado {
+    background-color: #e0f2fe; color: #0369a1; padding: 4px 10px;
+    border-radius: 20px; font-size: 0.85rem; font-weight: bold; border: 1px solid #bae6fd;
+}
+.etiqueta-rol {
+    background-color: #f1f5f9; border: 1px solid #cbd5e1; color: #475569;
+    padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; display: inline-block;
+}
+.etiqueta-admin {
+    background-color: #fef2f2; color: #ef4444; padding: 2px 6px;
+    border-radius: 4px; font-size: 0.8rem; margin-left: 10px; border: 1px solid #fca5a5;
+}
+
+/*  SISTEMA DE DATA GRID */
+
+/* Contenedor principal de los Data Grids */
+.contenedor-datos-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    margin-top: 10px;
+}
+
+/* Estructura de las columnas por cada módulo */
+.fila-grid-tareas {
+    display: grid;
+    grid-template-columns: 80px 2fr 1.5fr 1fr 200px;
+    align-items: center; padding: 12px 20px; border-bottom: 1px solid #f1f5f9;
+}
+
+.fila-grid-basica {
+    display: grid;
+    grid-template-columns: 180px 2fr 200px; 
+    align-items: center; 
+    padding: 12px 20px; 
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.fila-grid-usuarios {
+    display: grid;
+    grid-template-columns: 2fr 2fr 2fr 200px; /* Nombre, Correo, Tareas, Acciones */
+    align-items: center; padding: 12px 20px; border-bottom: 1px solid #f1f5f9;
+}
+
+/* Estilo especial para la primera fila (Los encabezados de las columnas) */
+.encabezado-grid {
+    background-color: #f8fafc;
     font-weight: bold;
-    font-size: 0.8rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background-color: #e2e8f0;
+    color: #64748b;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    border-bottom: 2px solid #e2e8f0;
+    border-radius: 8px 8px 0 0;
 }
 
-.texto-sin-tareas {
-    font-size: 0.9rem;
-    color: #888888;
-    font-style: italic;
+/* Limpieza de la última fila */
+.contenedor-datos-grid > div:last-child { border-bottom: none; }
+
+.acciones-grid {
+    display: flex; gap: 10px; justify-content: flex-end;
 }
 
-/* Estilo para el botón de editar en los usuarios */
-.btn-editar {
-    background-color: #f6ad55;
-    color: white;
-    border: none;
-    padding: 6px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-right: 5px;
+/* FILTROS DINÁMICOS */
+.contenedor-filtros {
+    margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap;
 }
+.btn-filtro {
+    width: auto; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem;
+    background-color: #e0f2fe; color: #0369a1;
+}
+.btn-filtro:hover { background-color: #bae6fd; }
+.btn-filtro-todas { background-color: #0f172a; color: white; }
+.btn-filtro-todas:hover { background-color: #1e293b; }
 
-.btn-editar:hover {
-    background-color: #dd9b43;
+/* DISEÑO RESPONSIVO (Móviles) */
+@media (max-width: 900px) {
+    body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow: auto; }
+    header { padding: 1rem; }
+    nav ul { flex-direction: row; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+    main { padding: 1.5rem; }
+    .encabezado-grid { display: none; } /* Ocultamos encabezados en móvil */
+    .fila-grid-tareas, .fila-grid-basica, .fila-grid-usuarios {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+    }
 }
