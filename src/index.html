@@ -28,22 +28,52 @@
             <p>Plataforma centralizada para organizar responsabilidades, prioridades y estados de equipos de desarrollo.</p>
         </section>
 
-        <!-- Sección de Tareas (Dashboard conectado a la API) - TODO ENCAPSULADO AQUÍ DENTRO -->
+        <!-- Sección de Tareas (Dashboard conectado a la API) -->
         <section id="tareas" class="seccion-vista">
             <h2>Tareas</h2>
-            
+
             <!-- Formulario para crear o editar tareas en la API -->
             <form id="form-crear-tarea">
-                <input type="text" id="titulo-tarea" placeholder="Escribe el título de la tarea..." required>
-                
-                <select id="usuario-asignado-tarea" class="select-formulario" required>
-                    <option value="">Selecciona un usuario responsable...</option>
-                </select>
+                <input type="text" id="titulo-tarea" placeholder="Escribe el título de la tarea..." maxlength="200" required>
 
-                <!-- Selector de estado visible siempre para crear y editar -->
-                <select id="estado-tarea" class="select-formulario" required>
-                    <option value="">Selecciona el estado...</option>
-                </select>
+                <textarea id="descripcion-tarea" rows="3" maxlength="2000" placeholder="Descripción de la tarea (opcional)..."></textarea>
+
+                <div class="fila-formulario">
+                    <div class="campo-formulario">
+                        <label for="usuario-asignado-tarea">Responsable</label>
+                        <select id="usuario-asignado-tarea" class="select-formulario">
+                            <option value="">Sin responsable</option>
+                        </select>
+                    </div>
+                    <div class="campo-formulario">
+                        <label for="proyecto-tarea">Proyecto</label>
+                        <select id="proyecto-tarea" class="select-formulario">
+                            <option value="">Sin proyecto</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="fila-formulario fila-formulario-3">
+                    <div class="campo-formulario">
+                        <label for="estado-tarea">Estado</label>
+                        <select id="estado-tarea" class="select-formulario" required>
+                            <option value="">Selecciona el estado...</option>
+                        </select>
+                    </div>
+                    <div class="campo-formulario">
+                        <label for="prioridad-tarea">Prioridad</label>
+                        <select id="prioridad-tarea" class="select-formulario">
+                            <option value="Baja">Baja</option>
+                            <option value="Media" selected>Media</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Crítica">Crítica</option>
+                        </select>
+                    </div>
+                    <div class="campo-formulario">
+                        <label for="fecha-limite-tarea">Fecha límite</label>
+                        <input type="date" id="fecha-limite-tarea">
+                    </div>
+                </div>
 
                 <div class="contenedor-botones-formulario">
                     <button type="submit" id="btn-submit-tarea">Crear Tarea</button>
@@ -51,15 +81,45 @@
                 </div>
             </form>
 
-           <!-- Botones dinámicos para filtrar la lista según el estado (Se inyectan desde JS) -->
+            <!-- Botones dinámicos para filtrar la lista según el estado (Se inyectan desde JS) -->
             <div id="controles-filtro" class="contenedor-filtros">
+            </div>
+
+            <!-- Filtros adicionales: se combinan con el filtro de estado -->
+            <div class="barra-filtros">
+                <select id="filtro-responsable" onchange="aplicarFiltros()">
+                    <option value="">Todos los responsables</option>
+                </select>
+                <select id="filtro-proyecto" onchange="aplicarFiltros()">
+                    <option value="">Todos los proyectos</option>
+                </select>
+                <select id="filtro-prioridad" onchange="aplicarFiltros()">
+                    <option value="">Todas las prioridades</option>
+                    <option value="Baja">Baja</option>
+                    <option value="Media">Media</option>
+                    <option value="Alta">Alta</option>
+                    <option value="Crítica">Crítica</option>
+                </select>
+                <label class="label-checkbox filtro-atrasadas">
+                    <input type="checkbox" id="filtro-atrasadas" class="checkbox-admin" onchange="aplicarFiltros()">
+                    Solo atrasadas
+                </label>
             </div>
 
             <!-- Contenedor dinámico donde inyectaré las tareas desde el servidor -->
             <div id="contenedor-tareas">
                 <p>Cargando tareas...</p>
             </div>
-        </section>   
+        </section>
+
+        <!-- Vista SPA: Detalle de una tarea -->
+        <section id="tarea-detalle" class="seccion-vista">
+            <button class="btn-secundario" onclick="mostrarSeccion('tareas')">&larr; Volver a tareas</button>
+
+            <div id="contenedor-detalle-tarea" class="tarjeta-detalle">
+                <p>Cargando tarea...</p>
+            </div>
+        </section>
 
 <!-- Sección de Maestro de Estados -->
         <section id="estados" class="seccion-vista">
@@ -68,7 +128,14 @@
 
             <form id="form-crear-estado">
                 <input type="text" id="nombre-estado" placeholder="Nombre del nuevo estado (ej. En Revisión)..." required>
-                
+
+                <div class="contenedor-checkbox">
+                    <label class="label-checkbox">
+                        <input type="checkbox" id="es-final-estado" class="checkbox-admin">
+                        <strong>¿Este estado cierra la tarea? (por ejemplo Terminada o Cancelada)</strong>
+                    </label>
+                </div>
+
                 <div class="contenedor-botones-formulario">
                     <button type="submit" id="btn-submit-estado">Agregar Estado</button>
                     <button type="button" id="btn-cancelar-estado" class="btn-cancelar" onclick="cancelarEdicionEstado()">Cancelar</button>
@@ -87,10 +154,10 @@
 
             <form id="form-crear-rol">
                 <input type="text" id="nombre-rol" placeholder="Nombre del rol (ej. Auditor, Cliente)..." required>
-                
+
                 <div class="contenedor-checkbox">
                     <label class="label-checkbox">
-                        <input type="checkbox" id="es-admin" class="checkbox-admin"> 
+                        <input type="checkbox" id="es-admin" class="checkbox-admin">
                         <strong>¿Este rol tiene permisos de Administrador?</strong>
                     </label>
                 </div>
@@ -114,7 +181,7 @@
             <form id="form-crear-usuario">
                 <input type="text" id="nombre-usuario" placeholder="Nombre completo del usuario..." required>
                 <input type="email" id="correo-usuario" placeholder="Correo electrónico..." required>
-                
+
                 <select id="rol-usuario" class="select-formulario" required>
                     <option value="">Seleccionando roles disponibles...</option>
                 </select>
@@ -126,7 +193,7 @@
             </form>
 
             <h3 class="titulo-separador">Selecciona un rol para ver a su personal:</h3>
-            
+
             <!-- Aquí inyectaremos las tarjetas/carpetas de los roles -->
             <div id="contenedor-carpetas-roles" class="contenedor-grid">
                 <p>Cargando roles...</p>
@@ -136,7 +203,7 @@
         <!-- Nueva Vista SPA: Detalle de Usuarios por Rol -->
         <section id="usuarios-detalle" class="seccion-vista">
             <h2 id="titulo-rol-seleccionado">Usuarios del Rol</h2>
-            
+
             <!-- Botón para regresar a las carpetas -->
             <button class="btn-secundario" onclick="mostrarSeccion('usuarios')">&larr; Volver a todos los roles</button>
 

@@ -30,23 +30,70 @@ async function mostrarErrorDeRespuesta(respuesta, mensajePorDefecto) {
 
 // MÓDULO: MAESTRO DE TAREAS
 const API_TAREAS_URL = `${API_BASE_URL}/Tareas`;
+const API_PROYECTOS_URL = `${API_BASE_URL}/Proyectos`;
 const contenedorTareas = document.getElementById('contenedor-tareas');
 const formCrearTarea = document.getElementById('form-crear-tarea');
 const inputTitulo = document.getElementById('titulo-tarea');
+const inputDescripcion = document.getElementById('descripcion-tarea');
 const selectUsuarioTarea = document.getElementById('usuario-asignado-tarea');
+const selectProyectoTarea = document.getElementById('proyecto-tarea');
 const selectEstadoTarea = document.getElementById('estado-tarea');
+const selectPrioridadTarea = document.getElementById('prioridad-tarea');
+const inputFechaLimite = document.getElementById('fecha-limite-tarea');
 
 let miListaDeTareas = [];
+let miListaDeProyectos = [];
 let idTareaEnEdicion = null;
+let filtroEstadoActual = 'Todas';
+
+// Convierte "2026-10-26" en "26/10/2026" y "2026-10-26 17:40:06" en "26/10/2026 17:40"
+function formatearFecha(texto) {
+    if (!texto) return '—';
+    const [fecha, hora] = texto.split(' ');
+    const [anio, mes, dia] = fecha.split('-');
+    const fechaBonita = `${dia}/${mes}/${anio}`;
+    return hora ? `${fechaBonita} ${hora.substring(0, 5)}` : fechaBonita;
+}
+
+// Devuelve la clase CSS del color de cada prioridad (Crítica -> prioridad-critica)
+function clasePrioridad(prioridad) {
+    const nombre = (prioridad || 'Media').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return `badge-prioridad prioridad-${nombre}`;
+}
+
+async function cargarProyectos() {
+    try {
+        const respuesta = await fetch(API_PROYECTOS_URL);
+        if (!respuesta.ok) throw new Error('Falló servidor en proyectos.');
+        miListaDeProyectos = await respuesta.json();
+    } catch (error) { console.error('Error:', error); }
+}
 
 async function cargarUsuariosYEstadosParaTareas() {
     if (!selectUsuarioTarea || !selectEstadoTarea) return;
 
-    selectUsuarioTarea.innerHTML = '<option value="">Selecciona un usuario responsable...</option>';
+    // Selects del formulario
+    selectUsuarioTarea.innerHTML = '<option value="">Sin responsable</option>';
     miListaDeUsuarios.forEach(u => { selectUsuarioTarea.innerHTML += `<option value="${u.id_usuario}">${escaparHTML(u.nombre)}</option>`; });
+
+    selectProyectoTarea.innerHTML = '<option value="">Sin proyecto</option>';
+    miListaDeProyectos.forEach(p => { selectProyectoTarea.innerHTML += `<option value="${p.id_proyecto}">${escaparHTML(p.nombre)}</option>`; });
 
     selectEstadoTarea.innerHTML = '<option value="">Selecciona el estado...</option>';
     miListaDeEstados.forEach(e => { selectEstadoTarea.innerHTML += `<option value="${e.id_estado}">${escaparHTML(e.nombre_estado)}</option>`; });
+
+    // Selects de la barra de filtros (se conserva lo que estaba seleccionado)
+    const filtroResponsable = document.getElementById('filtro-responsable');
+    const valorResponsable = filtroResponsable.value;
+    filtroResponsable.innerHTML = '<option value="">Todos los responsables</option><option value="sin">Sin responsable</option>';
+    miListaDeUsuarios.forEach(u => { filtroResponsable.innerHTML += `<option value="${u.id_usuario}">${escaparHTML(u.nombre)}</option>`; });
+    filtroResponsable.value = valorResponsable;
+
+    const filtroProyecto = document.getElementById('filtro-proyecto');
+    const valorProyecto = filtroProyecto.value;
+    filtroProyecto.innerHTML = '<option value="">Todos los proyectos</option><option value="sin">Sin proyecto</option>';
+    miListaDeProyectos.forEach(p => { filtroProyecto.innerHTML += `<option value="${p.id_proyecto}">${escaparHTML(p.nombre)}</option>`; });
+    filtroProyecto.value = valorProyecto;
 }
 
 async function cargarTareas() {
@@ -56,11 +103,32 @@ async function cargarTareas() {
         if (!respuesta.ok) throw new Error('Falló la respuesta del servidor.');
 
         miListaDeTareas = await respuesta.json();
-        renderizarTareas(miListaDeTareas);
+        aplicarFiltros();
     } catch (error) {
         console.error('Error de conexión:', error);
         contenedorTareas.innerHTML = '<p style="color: red;">Error: No pude conectar con el Backend.</p>';
     }
+}
+
+// Aplica TODOS los filtros a la vez: estado (botones) + responsable + proyecto + prioridad + atrasadas
+function aplicarFiltros() {
+    const responsable = document.getElementById('filtro-responsable').value;
+    const proyecto = document.getElementById('filtro-proyecto').value;
+    const prioridad = document.getElementById('filtro-prioridad').value;
+    const soloAtrasadas = document.getElementById('filtro-atrasadas').checked;
+
+    const tareasFiltradas = miListaDeTareas.filter(t => {
+        if (filtroEstadoActual !== 'Todas' && t.estado !== filtroEstadoActual) return false;
+        if (responsable === 'sin' && t.id_usuario !== null) return false;
+        if (responsable !== '' && responsable !== 'sin' && t.id_usuario !== parseInt(responsable)) return false;
+        if (proyecto === 'sin' && t.id_proyecto !== null) return false;
+        if (proyecto !== '' && proyecto !== 'sin' && t.id_proyecto !== parseInt(proyecto)) return false;
+        if (prioridad !== '' && t.prioridad !== prioridad) return false;
+        if (soloAtrasadas && !t.atrasada) return false;
+        return true;
+    });
+
+    renderizarTareas(tareasFiltradas);
 }
 
 function renderizarTareas(tareas) {
@@ -68,29 +136,33 @@ function renderizarTareas(tareas) {
     contenedorTareas.className = 'contenedor-datos-grid'; // Aplicamos el Data Grid
 
     if (tareas.length === 0) {
-        contenedorTareas.innerHTML = '<div style="padding: 20px;">No hay tareas para mostrar en este filtro.</div>';
+        contenedorTareas.innerHTML = '<div style="padding: 20px;">No hay tareas para mostrar con estos filtros.</div>';
         return;
     }
 
     // Dibujamos el encabezado de las columnas
     const header = document.createElement('div');
     header.className = 'fila-grid-tareas encabezado-grid';
-    header.innerHTML = `<div>ID</div><div>Título</div><div>Responsable</div><div>Estado</div><div style="text-align:right;">Acciones</div>`;
+    header.innerHTML = `<div>ID</div><div>Título</div><div>Responsable</div><div>Prioridad</div><div>Fecha límite</div><div>Estado</div><div style="text-align:right;">Acciones</div>`;
     contenedorTareas.appendChild(header);
 
     // Dibujamos las filas de datos
     tareas.forEach(tarea => {
         const fila = document.createElement('div');
-        fila.className = 'fila-grid-tareas';
+        fila.className = 'fila-grid-tareas' + (tarea.atrasada ? ' fila-atrasada' : '');
         const responsable = tarea.usuario_asignado ? tarea.usuario_asignado : 'Sin asignar';
+        const avisoAtrasada = tarea.atrasada ? '<br><span class="texto-atrasada">Atrasada</span>' : '';
 
         // Los botones solo envían el ID; los demás datos se buscan en la lista (así un apóstrofe no rompe el botón)
         fila.innerHTML = `
             <div><strong>#${tarea.id}</strong></div>
-            <div>${escaparHTML(tarea.titulo)}</div>
+            <div>${escaparHTML(tarea.titulo)}<br><small class="texto-secundario">${escaparHTML(tarea.proyecto)}</small></div>
             <div>${escaparHTML(responsable)}</div>
+            <div><span class="${clasePrioridad(tarea.prioridad)}">${escaparHTML(tarea.prioridad)}</span></div>
+            <div>${formatearFecha(tarea.fecha_limite)}${avisoAtrasada}</div>
             <div><span class="badge-estado">${escaparHTML(tarea.estado)}</span></div>
             <div class="acciones-grid">
+                <button class="btn-ver" onclick="verDetalleTarea(${tarea.id})">Ver</button>
                 <button class="btn-editar" onclick="prepararEdicionTarea(${tarea.id})">Editar</button>
                 <button class="btn-eliminar" onclick="eliminarTarea(${tarea.id})">Eliminar</button>
             </div>
@@ -103,22 +175,32 @@ if (formCrearTarea) {
     formCrearTarea.addEventListener('submit', async function(evento) {
         evento.preventDefault();
         const tituloTexto = inputTitulo.value.trim();
-        const idUsuario = parseInt(selectUsuarioTarea.value);
         const idEstado = parseInt(selectEstadoTarea.value);
 
-        if (tituloTexto === '' || isNaN(idUsuario) || isNaN(idEstado)) return;
+        if (tituloTexto === '' || isNaN(idEstado)) return;
+
+        // Los campos opcionales que vienen vacíos se envían como null
+        const datosTarea = {
+            titulo: tituloTexto,
+            descripcion: inputDescripcion.value.trim() || null,
+            IdUsuarioResponsable: selectUsuarioTarea.value ? parseInt(selectUsuarioTarea.value) : null,
+            id_estado: idEstado,
+            id_proyecto: selectProyectoTarea.value ? parseInt(selectProyectoTarea.value) : null,
+            prioridad: selectPrioridadTarea.value,
+            fecha_limite: inputFechaLimite.value || null   // el input type="date" ya entrega AAAA-MM-DD
+        };
 
         try {
             let respuesta;
             if (idTareaEnEdicion === null) {
                 respuesta = await fetch(API_TAREAS_URL, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ titulo: tituloTexto, IdUsuarioResponsable: idUsuario, id_estado: idEstado })
+                    body: JSON.stringify(datosTarea)
                 });
             } else {
                 respuesta = await fetch(`${API_TAREAS_URL}/${idTareaEnEdicion}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ titulo: tituloTexto, IdUsuarioResponsable: idUsuario, id_estado: idEstado })
+                    body: JSON.stringify(datosTarea)
                 });
             }
 
@@ -140,20 +222,75 @@ function prepararEdicionTarea(id) {
     const tarea = miListaDeTareas.find(t => t.id === id);
     if (!tarea) return;
 
+    mostrarSeccion('tareas');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+
     idTareaEnEdicion = id;
     inputTitulo.value = tarea.titulo;
+    inputDescripcion.value = tarea.descripcion ?? '';
     selectUsuarioTarea.value = tarea.id_usuario ?? '';
+    selectProyectoTarea.value = tarea.id_proyecto ?? '';
     selectEstadoTarea.value = tarea.id_estado ?? '';
+    selectPrioridadTarea.value = tarea.prioridad || 'Media';
+    inputFechaLimite.value = tarea.fecha_limite ?? '';
     document.getElementById('btn-submit-tarea').textContent = 'Actualizar Tarea';
     document.getElementById('btn-cancelar-tarea').classList.add('visible');
 }
 
 function cancelarEdicionTarea() {
     idTareaEnEdicion = null;
-    inputTitulo.value = ''; selectUsuarioTarea.value = ''; selectEstadoTarea.value = '';
+    inputTitulo.value = ''; inputDescripcion.value = '';
+    selectUsuarioTarea.value = ''; selectProyectoTarea.value = ''; selectEstadoTarea.value = '';
+    selectPrioridadTarea.value = 'Media'; inputFechaLimite.value = '';
     document.getElementById('btn-submit-tarea').textContent = 'Crear Tarea';
     document.getElementById('btn-cancelar-tarea').classList.remove('visible');
+}
+
+// Consulta el detalle de una tarea a la API (GET /api/Tareas/{id}) y lo muestra en su propia vista
+async function verDetalleTarea(id) {
+    const contenedor = document.getElementById('contenedor-detalle-tarea');
+    contenedor.innerHTML = '<p>Cargando tarea...</p>';
+    mostrarSeccion('tarea-detalle');
+
+    try {
+        const respuesta = await fetch(`${API_TAREAS_URL}/${id}`);
+        if (!respuesta.ok) {
+            await mostrarErrorDeRespuesta(respuesta, 'No se pudo cargar la tarea.');
+            mostrarSeccion('tareas');
+            return;
+        }
+        const tarea = await respuesta.json();
+        const avisoAtrasada = tarea.atrasada
+            ? '<div class="aviso-atrasada">Esta tarea está atrasada: su fecha límite ya pasó y todavía no está cerrada.</div>'
+            : '';
+
+        contenedor.innerHTML = `
+            ${avisoAtrasada}
+            <h2>#${tarea.id} · ${escaparHTML(tarea.titulo)}</h2>
+            <p class="detalle-descripcion">${tarea.descripcion ? escaparHTML(tarea.descripcion) : '<em>Sin descripción</em>'}</p>
+
+            <div class="detalle-datos">
+                <div><span>Estado</span><strong><span class="badge-estado">${escaparHTML(tarea.estado)}</span></strong></div>
+                <div><span>Prioridad</span><strong><span class="${clasePrioridad(tarea.prioridad)}">${escaparHTML(tarea.prioridad)}</span></strong></div>
+                <div><span>Responsable</span><strong>${escaparHTML(tarea.usuario_asignado)}</strong></div>
+                <div><span>Proyecto</span><strong>${escaparHTML(tarea.proyecto)}</strong></div>
+                <div><span>Fecha de creación</span><strong>${formatearFecha(tarea.fecha_creacion)}</strong></div>
+                <div><span>Fecha límite</span><strong>${formatearFecha(tarea.fecha_limite)}</strong></div>
+                <div><span>Fecha de finalización</span><strong>${formatearFecha(tarea.fecha_finalizacion)}</strong></div>
+                <div><span>Última actualización</span><strong>${formatearFecha(tarea.fecha_actualizacion)}</strong></div>
+            </div>
+
+            <div class="contenedor-botones-formulario">
+                <button class="btn-editar" onclick="prepararEdicionTarea(${tarea.id})">Editar</button>
+                <button class="btn-eliminar" onclick="eliminarTarea(${tarea.id})">Eliminar</button>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error al cargar el detalle:', error);
+        alert('No se pudo conectar con el servidor.');
+        mostrarSeccion('tareas');
+    }
 }
 
 async function eliminarTarea(id) {
@@ -161,6 +298,7 @@ async function eliminarTarea(id) {
     try {
         const respuesta = await fetch(`${API_TAREAS_URL}/${id}`, { method: 'DELETE' });
         if (respuesta.ok) {
+            if (window.location.hash === '#tarea-detalle') mostrarSeccion('tareas');
             cargarTareas();
             if (typeof cargarUsuarios === 'function') cargarUsuarios();
         } else {
@@ -172,20 +310,28 @@ async function eliminarTarea(id) {
     }
 }
 
+// Filtro por estado (botones): guarda el estado elegido y vuelve a aplicar todos los filtros
 function filtrarVista(criterio) {
-    if (criterio === 'Todas') renderizarTareas(miListaDeTareas);
-    else renderizarTareas(miListaDeTareas.filter(t => t.estado === criterio));
+    filtroEstadoActual = criterio;
+    document.querySelectorAll('.btn-filtro').forEach(btn => {
+        btn.classList.toggle('btn-filtro-activo', btn.dataset.estado === criterio);
+    });
+    aplicarFiltros();
 }
 
 function renderizarFiltrosTareas() {
     const contenedorFiltros = document.getElementById('controles-filtro');
     if (!contenedorFiltros) return;
-    contenedorFiltros.innerHTML = '<button onclick="filtrarVista(\'Todas\')" class="btn-filtro btn-filtro-todas">Todas</button>';
-    miListaDeEstados.forEach(estado => {
+    contenedorFiltros.innerHTML = '';
+
+    const nombres = ['Todas', ...miListaDeEstados.map(e => e.nombre_estado)];
+    nombres.forEach(nombre => {
         const btn = document.createElement('button');
-        btn.className = 'btn-filtro';
-        btn.textContent = estado.nombre_estado;
-        btn.onclick = () => filtrarVista(estado.nombre_estado);
+        btn.className = 'btn-filtro' + (nombre === 'Todas' ? ' btn-filtro-todas' : '');
+        if (nombre === filtroEstadoActual) btn.classList.add('btn-filtro-activo');
+        btn.dataset.estado = nombre;
+        btn.textContent = nombre;
+        btn.onclick = () => filtrarVista(nombre);
         contenedorFiltros.appendChild(btn);
     });
 }
@@ -196,6 +342,7 @@ const API_ESTADOS_URL = `${API_BASE_URL}/Estados`;
 const contenedorEstados = document.getElementById('contenedor-estados');
 const formCrearEstado = document.getElementById('form-crear-estado');
 const inputNombreEstado = document.getElementById('nombre-estado');
+const checkboxEsFinal = document.getElementById('es-final-estado');
 let miListaDeEstados = [];
 let idEstadoEnEdicion = null;
 
@@ -228,7 +375,7 @@ function renderizarEstados(estados) {
         fila.className = 'fila-grid-basica';
         fila.innerHTML = `
             <div><strong>#${estado.id_estado}</strong></div>
-            <div>${escaparHTML(estado.nombre_estado)}</div>
+            <div>${escaparHTML(estado.nombre_estado)} ${estado.es_final ? '<span class="etiqueta-final">Cierra la tarea</span>' : ''}</div>
             <div class="acciones-grid">
                 <button class="btn-editar" onclick="prepararEdicionEstado(${estado.id_estado})">Editar</button>
                 <button class="btn-eliminar" onclick="eliminarEstado(${estado.id_estado})">Eliminar</button>
@@ -247,9 +394,9 @@ if (formCrearEstado) {
         try {
             let respuesta;
             if (idEstadoEnEdicion === null) {
-                respuesta = await fetch(API_ESTADOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto }) });
+                respuesta = await fetch(API_ESTADOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto, es_final: checkboxEsFinal.checked }) });
             } else {
-                respuesta = await fetch(`${API_ESTADOS_URL}/${idEstadoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto }) });
+                respuesta = await fetch(`${API_ESTADOS_URL}/${idEstadoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto, es_final: checkboxEsFinal.checked }) });
             }
 
             if (respuesta.ok) { cancelarEdicionEstado(); inicializarSistema(); }
@@ -266,13 +413,13 @@ function prepararEdicionEstado(id) {
     if (!estado) return;
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    idEstadoEnEdicion = id; inputNombreEstado.value = estado.nombre_estado;
+    idEstadoEnEdicion = id; inputNombreEstado.value = estado.nombre_estado; checkboxEsFinal.checked = estado.es_final;
     document.getElementById('btn-submit-estado').textContent = 'Actualizar Estado';
     document.getElementById('btn-cancelar-estado').classList.add('visible');
 }
 
 function cancelarEdicionEstado() {
-    idEstadoEnEdicion = null; inputNombreEstado.value = '';
+    idEstadoEnEdicion = null; inputNombreEstado.value = ''; checkboxEsFinal.checked = false;
     document.getElementById('btn-submit-estado').textContent = 'Agregar Estado';
     document.getElementById('btn-cancelar-estado').classList.remove('visible');
 }
@@ -589,6 +736,9 @@ function mostrarSeccion(idSeccion) {
 document.addEventListener("DOMContentLoaded", () => {
     let seccionGuardada = window.location.hash.substring(1);
     if (!seccionGuardada) seccionGuardada = 'home';
+    // Las vistas de detalle necesitan saber qué mostrar; al recargar la página se vuelve a la lista
+    if (seccionGuardada === 'tarea-detalle') seccionGuardada = 'tareas';
+    if (seccionGuardada === 'usuarios-detalle') seccionGuardada = 'usuarios';
     mostrarSeccion(seccionGuardada);
 });
 
@@ -598,6 +748,7 @@ async function inicializarSistema() {
     await cargarRoles();
     cargarRolesParaSelect();
     await cargarUsuarios();
+    await cargarProyectos();
     await cargarUsuariosYEstadosParaTareas();
     cargarTareas();
 }

@@ -73,11 +73,11 @@ form {
     box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column;
     gap: 15px; max-width: 700px; margin-bottom: 30px; border: 1px solid #e2e8f0;
 }
-input, select {
+input, select, textarea {
     width: 100%; padding: 12px; border: 1px solid #cbd5e1;
     border-radius: 6px; font-size: 1rem;
 }
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
     outline: none; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
 }
 
@@ -138,7 +138,8 @@ button:hover { background-color: #0284c7; }
 /* Estructura de las columnas por cada módulo */
 .fila-grid-tareas {
     display: grid;
-    grid-template-columns: 80px 2fr 1.5fr 1fr 200px;
+    grid-template-columns: 60px 2.2fr 1.3fr 0.9fr 1.1fr 1fr 230px; /* ID, Título, Responsable, Prioridad, Fecha límite, Estado, Acciones */
+    gap: 10px;
     align-items: center; padding: 12px 20px; border-bottom: 1px solid #f1f5f9;
 }
 
@@ -186,6 +187,67 @@ button:hover { background-color: #0284c7; }
 .btn-filtro-todas { background-color: #0f172a; color: white; }
 .btn-filtro-todas:hover { background-color: #1e293b; }
 
+/* ===== TAREAS V2: FORMULARIO, FILTROS, PRIORIDADES Y DETALLE ===== */
+
+textarea { font-family: inherit; resize: vertical; }
+
+/* Campos del formulario en filas de 2 o 3 columnas, con su etiqueta arriba */
+.fila-formulario { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.fila-formulario-3 { grid-template-columns: 1fr 1fr 1fr; }
+.campo-formulario { display: flex; flex-direction: column; gap: 6px; }
+.campo-formulario label { font-size: 0.85rem; font-weight: 600; color: #475569; }
+
+/* Barra de filtros adicionales */
+.barra-filtros {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;
+}
+.barra-filtros select { width: auto; min-width: 190px; padding: 8px 12px; font-size: 0.9rem; }
+.filtro-atrasadas { font-size: 0.9rem; font-weight: 600; color: #475569; }
+
+/* Filtro de estado seleccionado */
+.btn-filtro-activo { outline: 2px solid #0ea5e9; outline-offset: 2px; }
+
+/* Prioridades: un color por nivel */
+.badge-prioridad {
+    padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; display: inline-block;
+}
+.prioridad-baja { background-color: #f1f5f9; color: #475569; }
+.prioridad-media { background-color: #fef9c3; color: #854d0e; }
+.prioridad-alta { background-color: #ffedd5; color: #c2410c; }
+.prioridad-critica { background-color: #fee2e2; color: #b91c1c; }
+
+/* Tareas atrasadas */
+.fila-atrasada { background-color: #fff7f7; }
+.texto-atrasada { color: #dc2626; font-size: 0.8rem; font-weight: bold; }
+.texto-secundario { color: #94a3b8; }
+.aviso-atrasada {
+    background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;
+    padding: 12px 15px; border-radius: 6px; font-weight: 600; margin-bottom: 20px;
+}
+
+/* Estados que cierran la tarea */
+.etiqueta-final {
+    background-color: #dcfce7; color: #15803d; padding: 2px 6px;
+    border-radius: 4px; font-size: 0.8rem; margin-left: 10px; border: 1px solid #86efac;
+}
+
+/* Botón Ver */
+.btn-ver { background-color: #64748b; padding: 8px 15px; }
+.btn-ver:hover { background-color: #475569; }
+
+/* Vista de detalle de una tarea */
+.tarjeta-detalle {
+    background: white; padding: 30px; border-radius: 8px; max-width: 800px;
+    border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.detalle-descripcion { white-space: pre-line; }
+.detalle-datos {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px 30px; margin-bottom: 25px;
+}
+.detalle-datos div { display: flex; flex-direction: column; gap: 4px; }
+.detalle-datos > div > span:first-child { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
+.tarjeta-detalle .contenedor-botones-formulario button { width: auto; padding: 10px 20px; }
+
 /* DISEÑO RESPONSIVO (Móviles) */
 @media (max-width: 900px) {
     body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow: auto; }
@@ -196,4 +258,5 @@ button:hover { background-color: #0284c7; }
     .fila-grid-tareas, .fila-grid-basica, .fila-grid-usuarios {
         display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
     }
+    .fila-formulario, .fila-formulario-3, .detalle-datos { grid-template-columns: 1fr; }
 }
