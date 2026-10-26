@@ -1,6 +1,35 @@
 
+// CONFIGURACIÓN GENERAL
+// La dirección del backend se escribe una sola vez. Si cambia (por ejemplo en Docker), solo se cambia aquí.
+const API_BASE_URL = 'https://localhost:7019/api';
+
+// Convierte los caracteres especiales (< > & " ') en texto seguro antes de meterlos en innerHTML.
+// Así, un título como  L'Oréal  o  <b>hola</b>  se muestra tal cual y no rompe la página (evita XSS).
+function escaparHTML(texto) {
+    return String(texto ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Muestra el mensaje de error que devuelve la API ({ mensaje: "..." }).
+// Si la respuesta no trae un mensaje legible, muestra uno genérico.
+async function mostrarErrorDeRespuesta(respuesta, mensajePorDefecto) {
+    let mensaje = mensajePorDefecto;
+    try {
+        const datos = await respuesta.json();
+        if (datos && datos.mensaje) mensaje = datos.mensaje;
+    } catch (e) {
+        // La respuesta no era JSON: se queda el mensaje por defecto
+    }
+    alert(mensaje);
+}
+
+
 // MÓDULO: MAESTRO DE TAREAS
-const API_TAREAS_URL = 'https://localhost:7019/api/Tareas';
+const API_TAREAS_URL = `${API_BASE_URL}/Tareas`;
 const contenedorTareas = document.getElementById('contenedor-tareas');
 const formCrearTarea = document.getElementById('form-crear-tarea');
 const inputTitulo = document.getElementById('titulo-tarea');
@@ -12,12 +41,12 @@ let idTareaEnEdicion = null;
 
 async function cargarUsuariosYEstadosParaTareas() {
     if (!selectUsuarioTarea || !selectEstadoTarea) return;
-    
+
     selectUsuarioTarea.innerHTML = '<option value="">Selecciona un usuario responsable...</option>';
-    miListaDeUsuarios.forEach(u => { selectUsuarioTarea.innerHTML += `<option value="${u.id_usuario}">${u.nombre}</option>`; });
+    miListaDeUsuarios.forEach(u => { selectUsuarioTarea.innerHTML += `<option value="${u.id_usuario}">${escaparHTML(u.nombre)}</option>`; });
 
     selectEstadoTarea.innerHTML = '<option value="">Selecciona el estado...</option>';
-    miListaDeEstados.forEach(e => { selectEstadoTarea.innerHTML += `<option value="${e.id_estado}">${e.nombre_estado}</option>`; });
+    miListaDeEstados.forEach(e => { selectEstadoTarea.innerHTML += `<option value="${e.id_estado}">${escaparHTML(e.nombre_estado)}</option>`; });
 }
 
 async function cargarTareas() {
@@ -25,7 +54,7 @@ async function cargarTareas() {
         contenedorTareas.innerHTML = '<p>Conectando con la base de datos...</p>';
         const respuesta = await fetch(API_TAREAS_URL);
         if (!respuesta.ok) throw new Error('Falló la respuesta del servidor.');
-        
+
         miListaDeTareas = await respuesta.json();
         renderizarTareas(miListaDeTareas);
     } catch (error) {
@@ -35,7 +64,7 @@ async function cargarTareas() {
 }
 
 function renderizarTareas(tareas) {
-    contenedorTareas.innerHTML = ''; 
+    contenedorTareas.innerHTML = '';
     contenedorTareas.className = 'contenedor-datos-grid'; // Aplicamos el Data Grid
 
     if (tareas.length === 0) {
@@ -52,16 +81,17 @@ function renderizarTareas(tareas) {
     // Dibujamos las filas de datos
     tareas.forEach(tarea => {
         const fila = document.createElement('div');
-        fila.className = 'fila-grid-tareas'; 
+        fila.className = 'fila-grid-tareas';
         const responsable = tarea.usuario_asignado ? tarea.usuario_asignado : 'Sin asignar';
 
+        // Los botones solo envían el ID; los demás datos se buscan en la lista (así un apóstrofe no rompe el botón)
         fila.innerHTML = `
             <div><strong>#${tarea.id}</strong></div>
-            <div>${tarea.titulo}</div>
-            <div>${responsable}</div>
-            <div><span class="badge-estado">${tarea.estado}</span></div>
+            <div>${escaparHTML(tarea.titulo)}</div>
+            <div>${escaparHTML(responsable)}</div>
+            <div><span class="badge-estado">${escaparHTML(tarea.estado)}</span></div>
             <div class="acciones-grid">
-                <button class="btn-editar" onclick="prepararEdicionTarea(${tarea.id}, '${tarea.titulo}', ${tarea.id_estado}, ${tarea.id_usuario})">Editar</button>
+                <button class="btn-editar" onclick="prepararEdicionTarea(${tarea.id})">Editar</button>
                 <button class="btn-eliminar" onclick="eliminarTarea(${tarea.id})">Eliminar</button>
             </div>
         `;
@@ -71,7 +101,7 @@ function renderizarTareas(tareas) {
 
 if (formCrearTarea) {
     formCrearTarea.addEventListener('submit', async function(evento) {
-        evento.preventDefault(); 
+        evento.preventDefault();
         const tituloTexto = inputTitulo.value.trim();
         const idUsuario = parseInt(selectUsuarioTarea.value);
         const idEstado = parseInt(selectEstadoTarea.value);
@@ -94,23 +124,33 @@ if (formCrearTarea) {
 
             if (respuesta.ok) {
                 cancelarEdicionTarea();
-                cargarTareas(); 
-                if (typeof cargarUsuarios === 'function') cargarUsuarios(); 
+                cargarTareas();
+                if (typeof cargarUsuarios === 'function') cargarUsuarios();
+            } else {
+                await mostrarErrorDeRespuesta(respuesta, 'No se pudo guardar la tarea.');
             }
-        } catch (error) { console.error('Error al enviar los datos:', error); }
+        } catch (error) {
+            console.error('Error al enviar los datos:', error);
+            alert('No se pudo conectar con el servidor.');
+        }
     });
 }
 
-function prepararEdicionTarea(id, tituloActual, idEstadoActual, idUsuarioActual) {
+function prepararEdicionTarea(id) {
+    const tarea = miListaDeTareas.find(t => t.id === id);
+    if (!tarea) return;
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    idTareaEnEdicion = id; 
-    inputTitulo.value = tituloActual; selectUsuarioTarea.value = idUsuarioActual; selectEstadoTarea.value = idEstadoActual;
+    idTareaEnEdicion = id;
+    inputTitulo.value = tarea.titulo;
+    selectUsuarioTarea.value = tarea.id_usuario ?? '';
+    selectEstadoTarea.value = tarea.id_estado ?? '';
     document.getElementById('btn-submit-tarea').textContent = 'Actualizar Tarea';
     document.getElementById('btn-cancelar-tarea').classList.add('visible');
 }
 
 function cancelarEdicionTarea() {
-    idTareaEnEdicion = null; 
+    idTareaEnEdicion = null;
     inputTitulo.value = ''; selectUsuarioTarea.value = ''; selectEstadoTarea.value = '';
     document.getElementById('btn-submit-tarea').textContent = 'Crear Tarea';
     document.getElementById('btn-cancelar-tarea').classList.remove('visible');
@@ -120,12 +160,20 @@ async function eliminarTarea(id) {
     if (!confirm('¿Segura que deseas eliminar esta tarea de la base de datos?')) return;
     try {
         const respuesta = await fetch(`${API_TAREAS_URL}/${id}`, { method: 'DELETE' });
-        if (respuesta.ok) { cargarTareas(); if (typeof cargarUsuarios === 'function') cargarUsuarios(); }
-    } catch (error) { console.error('Error al eliminar:', error); }
+        if (respuesta.ok) {
+            cargarTareas();
+            if (typeof cargarUsuarios === 'function') cargarUsuarios();
+        } else {
+            await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar la tarea.');
+        }
+    } catch (error) {
+        console.error('Error al eliminar:', error);
+        alert('No se pudo conectar con el servidor.');
+    }
 }
 
 function filtrarVista(criterio) {
-    if (criterio === 'Todas') renderizarTareas(miListaDeTareas); 
+    if (criterio === 'Todas') renderizarTareas(miListaDeTareas);
     else renderizarTareas(miListaDeTareas.filter(t => t.estado === criterio));
 }
 
@@ -135,21 +183,21 @@ function renderizarFiltrosTareas() {
     contenedorFiltros.innerHTML = '<button onclick="filtrarVista(\'Todas\')" class="btn-filtro btn-filtro-todas">Todas</button>';
     miListaDeEstados.forEach(estado => {
         const btn = document.createElement('button');
-        btn.className = 'btn-filtro'; 
-        btn.textContent = estado.nombre_estado; 
-        btn.onclick = () => filtrarVista(estado.nombre_estado); 
+        btn.className = 'btn-filtro';
+        btn.textContent = estado.nombre_estado;
+        btn.onclick = () => filtrarVista(estado.nombre_estado);
         contenedorFiltros.appendChild(btn);
     });
 }
 
 
 // MÓDULO: MAESTRO DE ESTADOS
-const API_ESTADOS_URL = 'https://localhost:7019/api/Estados';
+const API_ESTADOS_URL = `${API_BASE_URL}/Estados`;
 const contenedorEstados = document.getElementById('contenedor-estados');
 const formCrearEstado = document.getElementById('form-crear-estado');
 const inputNombreEstado = document.getElementById('nombre-estado');
 let miListaDeEstados = [];
-let idEstadoEnEdicion = null; 
+let idEstadoEnEdicion = null;
 
 async function cargarEstados() {
     try {
@@ -164,7 +212,7 @@ async function cargarEstados() {
 function renderizarEstados(estados) {
     contenedorEstados.innerHTML = '';
     contenedorEstados.className = 'contenedor-datos-grid';
-    
+
     if (estados.length === 0) {
         contenedorEstados.innerHTML = '<div style="padding: 20px;">No hay estados registrados.</div>';
         return;
@@ -177,12 +225,12 @@ function renderizarEstados(estados) {
 
     estados.forEach(estado => {
         const fila = document.createElement('div');
-        fila.className = 'fila-grid-basica'; 
+        fila.className = 'fila-grid-basica';
         fila.innerHTML = `
             <div><strong>#${estado.id_estado}</strong></div>
-            <div>${estado.nombre_estado}</div>
+            <div>${escaparHTML(estado.nombre_estado)}</div>
             <div class="acciones-grid">
-                <button class="btn-editar" onclick="prepararEdicionEstado(${estado.id_estado}, '${estado.nombre_estado}')">Editar</button>
+                <button class="btn-editar" onclick="prepararEdicionEstado(${estado.id_estado})">Editar</button>
                 <button class="btn-eliminar" onclick="eliminarEstado(${estado.id_estado})">Eliminar</button>
             </div>
         `;
@@ -204,15 +252,21 @@ if (formCrearEstado) {
                 respuesta = await fetch(`${API_ESTADOS_URL}/${idEstadoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto }) });
             }
 
-            if (respuesta.ok) { cancelarEdicionEstado(); inicializarSistema(); } 
-            else { const err = await respuesta.json(); alert(err.mensaje); cargarEstados(); }
-        } catch (error) { console.error('Error:', error); }
+            if (respuesta.ok) { cancelarEdicionEstado(); inicializarSistema(); }
+            else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo guardar el estado.'); cargarEstados(); }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('No se pudo conectar con el servidor.');
+        }
     });
 }
 
-function prepararEdicionEstado(id, nombreActual) {
+function prepararEdicionEstado(id) {
+    const estado = miListaDeEstados.find(e => e.id_estado === id);
+    if (!estado) return;
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    idEstadoEnEdicion = id; inputNombreEstado.value = nombreActual;
+    idEstadoEnEdicion = id; inputNombreEstado.value = estado.nombre_estado;
     document.getElementById('btn-submit-estado').textContent = 'Actualizar Estado';
     document.getElementById('btn-cancelar-estado').classList.add('visible');
 }
@@ -227,20 +281,23 @@ async function eliminarEstado(id) {
     if (!confirm('¿Segura que deseas eliminar este estado?')) return;
     try {
         const respuesta = await fetch(`${API_ESTADOS_URL}/${id}`, { method: 'DELETE' });
-        if (respuesta.ok) { inicializarSistema(); } 
-        else { const err = await respuesta.json(); alert(err.mensaje); }
-    } catch (error) { console.error('Error:', error); }
+        if (respuesta.ok) { inicializarSistema(); }
+        else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el estado.'); }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('No se pudo conectar con el servidor.');
+    }
 }
 
 
 // MÓDULO: MAESTRO DE ROLES
-const API_ROLES_URL = 'https://localhost:7019/api/Roles';
+const API_ROLES_URL = `${API_BASE_URL}/Roles`;
 const contenedorRoles = document.getElementById('contenedor-roles');
 const formCrearRol = document.getElementById('form-crear-rol');
 const inputNombreRol = document.getElementById('nombre-rol');
 const checkboxEsAdmin = document.getElementById('es-admin');
 let miListaDeRoles = [];
-let idRolEnEdicion = null; 
+let idRolEnEdicion = null;
 
 async function cargarRoles() {
     try {
@@ -255,7 +312,7 @@ function renderizarRoles(roles) {
     if(!contenedorRoles) return;
     contenedorRoles.innerHTML = '';
     contenedorRoles.className = 'contenedor-datos-grid';
-    
+
     if (roles.length === 0) {
         contenedorRoles.innerHTML = '<div style="padding: 20px;">No hay roles registrados.</div>';
         return;
@@ -268,14 +325,14 @@ function renderizarRoles(roles) {
 
     roles.forEach(rol => {
         const fila = document.createElement('div');
-        fila.className = 'fila-grid-basica'; 
+        fila.className = 'fila-grid-basica';
         const etiquetaAdmin = rol.is_admin ? '<span class="etiqueta-admin">Administrador</span>' : '';
 
         fila.innerHTML = `
             <div><strong>#${rol.id_rol}</strong></div>
-            <div>${rol.nombre_rol} ${etiquetaAdmin}</div>
+            <div>${escaparHTML(rol.nombre_rol)} ${etiquetaAdmin}</div>
             <div class="acciones-grid">
-                <button class="btn-editar" onclick="prepararEdicionRol(${rol.id_rol}, '${rol.nombre_rol}', ${rol.is_admin})">Editar</button>
+                <button class="btn-editar" onclick="prepararEdicionRol(${rol.id_rol})">Editar</button>
                 <button class="btn-eliminar" onclick="eliminarRol(${rol.id_rol})">Eliminar</button>
             </div>
         `;
@@ -287,7 +344,7 @@ if(formCrearRol) {
     formCrearRol.addEventListener('submit', async function(evento) {
         evento.preventDefault();
         const nombreTexto = inputNombreRol.value.trim();
-        const esAdmin = checkboxEsAdmin.checked; 
+        const esAdmin = checkboxEsAdmin.checked;
         if (nombreTexto === '') return;
 
         try {
@@ -298,15 +355,21 @@ if(formCrearRol) {
                 respuesta = await fetch(`${API_ROLES_URL}/${idRolEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_rol: nombreTexto, is_admin: esAdmin }) });
             }
 
-            if (respuesta.ok) { cancelarEdicionRol(); inicializarSistema(); if (typeof cargarRolesParaSelect === 'function') cargarRolesParaSelect(); } 
-            else { const err = await respuesta.json(); alert(err.mensaje); cargarRoles(); }
-        } catch (error) { console.error('Error al procesar rol:', error); }
+            if (respuesta.ok) { cancelarEdicionRol(); inicializarSistema(); if (typeof cargarRolesParaSelect === 'function') cargarRolesParaSelect(); }
+            else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo guardar el rol.'); cargarRoles(); }
+        } catch (error) {
+            console.error('Error al procesar rol:', error);
+            alert('No se pudo conectar con el servidor.');
+        }
     });
 }
 
-function prepararEdicionRol(id, nombreActual, isAdminActual) {
+function prepararEdicionRol(id) {
+    const rol = miListaDeRoles.find(r => r.id_rol === id);
+    if (!rol) return;
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    idRolEnEdicion = id; inputNombreRol.value = nombreActual; checkboxEsAdmin.checked = isAdminActual;
+    idRolEnEdicion = id; inputNombreRol.value = rol.nombre_rol; checkboxEsAdmin.checked = rol.is_admin;
     document.getElementById('btn-submit-rol').textContent = 'Actualizar Rol';
     document.getElementById('btn-cancelar-rol').classList.add('visible');
 }
@@ -321,20 +384,23 @@ async function eliminarRol(id) {
     if (!confirm('¿Segura que deseas eliminar este rol?')) return;
     try {
         const respuesta = await fetch(`${API_ROLES_URL}/${id}`, { method: 'DELETE' });
-        if (respuesta.ok) { inicializarSistema(); if (typeof cargarRolesParaSelect === 'function') cargarRolesParaSelect(); } 
-        else { const err = await respuesta.json(); alert(err.mensaje); }
-    } catch (error) { console.error('Error al eliminar rol:', error); }
+        if (respuesta.ok) { inicializarSistema(); if (typeof cargarRolesParaSelect === 'function') cargarRolesParaSelect(); }
+        else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el rol.'); }
+    } catch (error) {
+        console.error('Error al eliminar rol:', error);
+        alert('No se pudo conectar con el servidor.');
+    }
 }
 
 
 // MÓDULO: MAESTRO DE USUARIOS
-const API_USUARIOS_URL = 'https://localhost:7019/api/Usuarios';
+const API_USUARIOS_URL = `${API_BASE_URL}/Usuarios`;
 const contenedorUsuarios = document.getElementById('contenedor-usuarios');
 const formCrearUsuario = document.getElementById('form-crear-usuario');
 const selectRolUsuario = document.getElementById('rol-usuario');
 
 let miListaDeUsuarios = [];
-let idUsuarioEnEdicion = null; 
+let idUsuarioEnEdicion = null;
 
 async function cargarRolesParaSelect() {
     if (!selectRolUsuario) return;
@@ -343,7 +409,7 @@ async function cargarRolesParaSelect() {
         if (respuesta.ok) {
             const roles = await respuesta.json();
             selectRolUsuario.innerHTML = '<option value="">Selecciona un rol para este usuario...</option>';
-            roles.forEach(rol => { selectRolUsuario.innerHTML += `<option value="${rol.id_rol}">${rol.nombre_rol}</option>`; });
+            roles.forEach(rol => { selectRolUsuario.innerHTML += `<option value="${rol.id_rol}">${escaparHTML(rol.nombre_rol)}</option>`; });
         }
     } catch (error) { console.error('Error:', error); }
 }
@@ -379,17 +445,19 @@ function renderizarCarpetasRoles() {
         fila.className = 'fila-grid-basica';
 
         fila.innerHTML = `
-            <div><strong>${rol.nombre_rol}</strong></div>
+            <div><strong>${escaparHTML(rol.nombre_rol)}</strong></div>
             <div>${usuariosDelRol.length} usuario(s)</div>
             <div class="acciones-grid">
-                <button class="btn-editar" style="background-color:#38bdf8; color:#0f172a;" onclick="abrirDetalleRol(${rol.id_rol}, '${rol.nombre_rol}')">Ver usuarios &rarr;</button>
+                <button class="btn-editar" style="background-color:#38bdf8; color:#0f172a;" onclick="abrirDetalleRol(${rol.id_rol})">Ver usuarios &rarr;</button>
             </div>
         `;
         contenedorCarpetas.appendChild(fila);
     });
 }
 
-function abrirDetalleRol(idRol, nombreRol) {
+function abrirDetalleRol(idRol) {
+    const rol = miListaDeRoles.find(r => r.id_rol === idRol);
+    const nombreRol = rol ? rol.nombre_rol : '';
     document.getElementById('titulo-rol-seleccionado').textContent = `Usuarios del Rol: ${nombreRol}`;
     const usuariosFiltrados = miListaDeUsuarios.filter(u => u.id_rol === idRol);
     renderizarUsuarios(usuariosFiltrados);
@@ -400,7 +468,7 @@ function renderizarUsuarios(usuarios) {
     if (!contenedorUsuarios) return;
     contenedorUsuarios.innerHTML = '';
     contenedorUsuarios.className = 'contenedor-datos-grid';
-    
+
     if (usuarios.length === 0) {
         contenedorUsuarios.innerHTML = '<div style="padding: 20px;">No hay usuarios registrados con este rol.</div>';
         return;
@@ -415,7 +483,7 @@ function renderizarUsuarios(usuarios) {
         let htmlTareas = '';
         if (usuario.tareas && usuario.tareas.length > 0) {
             htmlTareas = '<ul style="margin:0; padding-left:15px; font-size:0.85rem; color:#475569;">';
-            usuario.tareas.forEach(tarea => { htmlTareas += `<li>#${tarea.id_tarea} - ${tarea.titulo} <strong>(${tarea.estado})</strong></li>`; });
+            usuario.tareas.forEach(tarea => { htmlTareas += `<li>#${tarea.id_tarea} - ${escaparHTML(tarea.titulo)} <strong>(${escaparHTML(tarea.estado)})</strong></li>`; });
             htmlTareas += '</ul>';
         } else {
             htmlTareas = '<span style="color:#94a3b8; font-size:0.85rem;">Sin tareas asignadas</span>';
@@ -423,16 +491,16 @@ function renderizarUsuarios(usuarios) {
 
         const fila = document.createElement('div');
         fila.className = 'fila-grid-usuarios';
-        
+
         fila.innerHTML = `
-            <div><strong>${usuario.nombre}</strong></div>
+            <div><strong>${escaparHTML(usuario.nombre)}</strong></div>
             <div>
-                ${usuario.correo}<br>
-                <span class="etiqueta-rol" style="margin-top:5px;">${usuario.nombre_rol}</span>
+                ${escaparHTML(usuario.correo)}<br>
+                <span class="etiqueta-rol" style="margin-top:5px;">${escaparHTML(usuario.nombre_rol)}</span>
             </div>
             <div>${htmlTareas}</div>
             <div class="acciones-grid">
-                <button class="btn-editar" onclick="prepararEdicionUsuario(${usuario.id_usuario}, '${usuario.nombre}', '${usuario.correo}', ${usuario.id_rol})">Editar</button>
+                <button class="btn-editar" onclick="prepararEdicionUsuario(${usuario.id_usuario})">Editar</button>
                 <button class="btn-eliminar" onclick="eliminarUsuario(${usuario.id_usuario})">Eliminar</button>
             </div>
         `;
@@ -457,16 +525,22 @@ if (formCrearUsuario) {
                 respuesta = await fetch(`${API_USUARIOS_URL}/${idUsuarioEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: nombreTexto, correo: correoTexto, id_rol: idRolSeleccionado }) });
             }
 
-            if (respuesta.ok) { cancelarEdicionUsuario(); cargarUsuarios(); } 
-            else { const err = await respuesta.json(); alert(err.mensaje); cargarUsuarios(); }
-        } catch (error) { console.error('Error:', error); }
+            if (respuesta.ok) { cancelarEdicionUsuario(); cargarUsuarios(); }
+            else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo guardar el usuario.'); cargarUsuarios(); }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('No se pudo conectar con el servidor.');
+        }
     });
 }
 
-function prepararEdicionUsuario(id, nombreActual, correoActual, idRolActual) {
+function prepararEdicionUsuario(id) {
+    const usuario = miListaDeUsuarios.find(u => u.id_usuario === id);
+    if (!usuario) return;
+
     mostrarSeccion('usuarios'); window.scrollTo({ top: 0, behavior: 'smooth' });
-    idUsuarioEnEdicion = id; document.getElementById('nombre-usuario').value = nombreActual;
-    document.getElementById('correo-usuario').value = correoActual; selectRolUsuario.value = idRolActual;
+    idUsuarioEnEdicion = id; document.getElementById('nombre-usuario').value = usuario.nombre;
+    document.getElementById('correo-usuario').value = usuario.correo; selectRolUsuario.value = usuario.id_rol ?? '';
     document.getElementById('btn-submit-usuario').textContent = 'Actualizar Usuario';
     document.getElementById('btn-cancelar-usuario').classList.add('visible');
 }
@@ -482,8 +556,12 @@ async function eliminarUsuario(id) {
     if (!confirm('¿Segura que deseas eliminar este usuario?')) return;
     try {
         const respuesta = await fetch(`${API_USUARIOS_URL}/${id}`, { method: 'DELETE' });
-        if (respuesta.ok) { mostrarSeccion('usuarios'); cargarUsuarios(); }
-    } catch (error) { console.error('Error:', error); }
+        if (respuesta.ok) { mostrarSeccion('usuarios'); cargarUsuarios(); cargarTareas(); }
+        else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el usuario.'); }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('No se pudo conectar con el servidor.');
+    }
 }
 
 
