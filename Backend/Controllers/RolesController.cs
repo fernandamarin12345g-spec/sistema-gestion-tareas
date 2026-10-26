@@ -20,7 +20,32 @@ namespace Backend.Controllers
             public bool is_admin { get; set; }
         }
 
-        // 1. LEER LOS ROLES (GET)
+        // Valida el nombre antes de tocar la base de datos. Devuelve el mensaje de error o null.
+        private static string? ValidarNombre(string? nombre)
+        {
+            if (string.IsNullOrWhiteSpace(nombre))
+                return "El nombre del rol es obligatorio.";
+
+            if (nombre.Trim().Length > 50)
+                return "El nombre del rol no puede tener más de 50 caracteres.";
+
+            return null;
+        }
+
+        // La tabla Roles NO tiene UNIQUE en nombre_rol, así que los duplicados se revisan aquí,
+        // sin importar mayúsculas/minúsculas.
+        private static bool ExisteNombre(SqliteConnection conexion, string nombre, int idExcluir)
+        {
+            using (var comando = conexion.CreateCommand())
+            {
+                comando.CommandText = "SELECT COUNT(1) FROM Roles WHERE LOWER(nombre_rol) = LOWER(@nombre) AND id_rol != @id";
+                comando.Parameters.AddWithValue("@nombre", nombre);
+                comando.Parameters.AddWithValue("@id", idExcluir);
+                return (long)(comando.ExecuteScalar() ?? 0L) > 0;
+            }
+        }
+
+        // 1. LISTAR ROLES (GET)
         [HttpGet]
         public IActionResult ObtenerRoles()
         {
@@ -49,32 +74,79 @@ namespace Backend.Controllers
             return Ok(listaRoles);
         }
 
-        // 2. CREAR UN ROL (POST) - Blindado contra duplicados
+        // 2. CREAR ROL (POST)
         [HttpPost]
         public IActionResult CrearRol([FromBody] RolNuevo nuevoRol)
         {
-            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
+            string? error = ValidarNombre(nuevoRol.nombre_rol);
+            if (error != null)
+            {
+                return BadRequest(new { mensaje = error });
+            }
 
-            try
+            string nombre = nuevoRol.nombre_rol.Trim();
+            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
+            long nuevoId;
+
+            using (var conexion = new SqliteConnection(cadenaConexion))
             {
-                using (var conexion = new SqliteConnection(cadenaConexion))
+                conexion.Open();
+
+                if (ExisteNombre(conexion, nombre, 0))
                 {
-                    conexion.Open();
-                    var comando = conexion.CreateCommand();
-                    comando.CommandText = "INSERT INTO Roles (nombre_rol, is_admin) VALUES (@nombre, @isAdmin)";
-                    comando.Parameters.AddWithValue("@nombre", nuevoRol.nombre_rol);
-                    comando.Parameters.AddWithValue("@isAdmin", nuevoRol.is_admin ? 1 : 0);
-                    comando.ExecuteNonQuery();
+                    return BadRequest(new { mensaje = "Ya existe un rol con ese nombre." });
                 }
-                return Ok(new { mensaje = "Rol creado exitosamente" });
+
+                var comando = conexion.CreateCommand();
+                comando.CommandText = @"
+                    INSERT INTO Roles (nombre_rol, is_admin) VALUES (@nombre, @isAdmin);
+                    SELECT last_insert_rowid();";
+                comando.Parameters.AddWithValue("@nombre", nombre);
+                comando.Parameters.AddWithValue("@isAdmin", nuevoRol.is_admin ? 1 : 0);
+                nuevoId = (long)(comando.ExecuteScalar() ?? 0L);
             }
-            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
-            {
-                return BadRequest(new { mensaje = "El rol ya existe o entra en conflicto con un registro anterior." });
-            }
+
+            return Created($"/api/Roles/{nuevoId}", new { mensaje = "Rol creado exitosamente", id = nuevoId });
         }
 
-        // 3. ELIMINAR UN ROL (DELETE) - Blindado contra restricciones de llave foránea
+        // 3. ACTUALIZAR ROL (PUT)
+        [HttpPut("{id}")]
+        public IActionResult ActualizarRol(int id, [FromBody] RolNuevo rolActualizado)
+        {
+            string? error = ValidarNombre(rolActualizado.nombre_rol);
+            if (error != null)
+            {
+                return BadRequest(new { mensaje = error });
+            }
+
+            string nombre = rolActualizado.nombre_rol.Trim();
+            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
+
+            using (var conexion = new SqliteConnection(cadenaConexion))
+            {
+                conexion.Open();
+
+                if (ExisteNombre(conexion, nombre, id))
+                {
+                    return BadRequest(new { mensaje = "Ya existe otro rol con ese nombre." });
+                }
+
+                var comando = conexion.CreateCommand();
+                comando.CommandText = "UPDATE Roles SET nombre_rol = @nombre, is_admin = @isAdmin WHERE id_rol = @id";
+                comando.Parameters.AddWithValue("@nombre", nombre);
+                comando.Parameters.AddWithValue("@isAdmin", rolActualizado.is_admin ? 1 : 0);
+                comando.Parameters.AddWithValue("@id", id);
+
+                int filasAfectadas = comando.ExecuteNonQuery();
+                if (filasAfectadas == 0)
+                {
+                    return NotFound(new { mensaje = "Rol no encontrado" });
+                }
+            }
+            return Ok(new { mensaje = "Rol actualizado exitosamente" });
+        }
+
+        // 4. ELIMINAR ROL (DELETE)
         [HttpDelete("{id}")]
         public IActionResult EliminarRol(int id)
         {
@@ -88,32 +160,6 @@ namespace Backend.Controllers
                     var comando = conexion.CreateCommand();
                     comando.CommandText = "DELETE FROM Roles WHERE id_rol = @id";
                     comando.Parameters.AddWithValue("@id", id);
-                    comando.ExecuteNonQuery();
-                }
-                return Ok(new { mensaje = "Rol eliminado exitosamente" });
-            }
-            catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
-            {
-                return BadRequest(new { mensaje = "No se puede eliminar este rol porque hay usuarios asignados a él." });
-            }
-        }
-
-        // 4. ACTUALIZAR UN ROL (PUT) - Blindado contra duplicados
-        [HttpPut("{id}")]
-        public IActionResult ActualizarRol(int id, [FromBody] RolNuevo rolActualizado)
-        {
-            string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
-
-            try
-            {
-                using (var conexion = new SqliteConnection(cadenaConexion))
-                {
-                    conexion.Open();
-                    var comando = conexion.CreateCommand();
-                    comando.CommandText = "UPDATE Roles SET nombre_rol = @nombre, is_admin = @isAdmin WHERE id_rol = @id";
-                    comando.Parameters.AddWithValue("@nombre", rolActualizado.nombre_rol);
-                    comando.Parameters.AddWithValue("@isAdmin", rolActualizado.is_admin ? 1 : 0);
-                    comando.Parameters.AddWithValue("@id", id);
 
                     int filasAfectadas = comando.ExecuteNonQuery();
                     if (filasAfectadas == 0)
@@ -121,11 +167,12 @@ namespace Backend.Controllers
                         return NotFound(new { mensaje = "Rol no encontrado" });
                     }
                 }
-                return Ok(new { mensaje = "Rol actualizado exitosamente" });
+                return Ok(new { mensaje = "Rol eliminado exitosamente" });
             }
             catch (SqliteException ex) when (ex.SqliteErrorCode == 19)
             {
-                return BadRequest(new { mensaje = "El nombre del rol que intentas asignar ya está registrado." });
+                // La llave foránea impide borrar un rol que todavía tienen algunos usuarios
+                return BadRequest(new { mensaje = "No se puede eliminar este rol porque hay usuarios asignados a él." });
             }
         }
     }

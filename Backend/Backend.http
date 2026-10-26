@@ -89,3 +89,52 @@ Content-Type: application/json
 
 ### 12. Eliminar un usuario que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Usuarios/99999
+
+
+### 13. Estado con nombre vacío (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Estados
+Content-Type: application/json
+
+{
+  "nombre_estado": "   "
+}
+
+### 14. Estado repetido, con otras mayúsculas (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Estados
+Content-Type: application/json
+
+{
+  "nombre_estado": "PENDIENTE"
+}
+
+### 15. Eliminar un estado que usan algunas tareas (esperado: 400 Bad Request)
+DELETE {{Backend_HostAddress}}/api/Estados/9
+
+### 16. Eliminar un estado que no existe (esperado: 404 Not Found)
+DELETE {{Backend_HostAddress}}/api/Estados/99999
+
+### 17. Rol con nombre vacío (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Roles
+Content-Type: application/json
+
+{
+  "nombre_rol": "   ",
+  "is_admin": false
+}
+
+### 18. Rol repetido, con otras mayúsculas (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Roles
+Content-Type: application/json
+
+{
+  "nombre_rol": "administrador",
+  "is_admin": false
+}
+
+### 19. Eliminar un rol que tienen algunos usuarios (esperado: 400 Bad Request)
+DELETE {{Backend_HostAddress}}/api/Roles/1
+
+### 20. Eliminar un rol que no existe (esperado: 404 Not Found)
+DELETE {{Backend_HostAddress}}/api/Roles/99999
+
+
