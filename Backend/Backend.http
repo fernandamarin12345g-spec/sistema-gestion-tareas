@@ -1,6 +1,44 @@
-@Backend_HostAddress = http://localhost:5293
+@Backend_HostAddress = https://localhost:7019
 
-GET {{Backend_HostAddress}}/weatherforecast/
-Accept: application/json
+### 1. Listar tareas (esperado: 200 OK)
+GET {{Backend_HostAddress}}/api/Tareas
 
-###
+### 2. Crear tarea válida (esperado: 201 Created con el id)
+POST {{Backend_HostAddress}}/api/Tareas
+Content-Type: application/json
+
+{
+  "titulo": "Probar validaciones de la API",
+  "IdUsuarioResponsable": 2,
+  "id_estado": 9
+}
+
+### 3. Crear tarea sin responsable (esperado: 201 Created)
+POST {{Backend_HostAddress}}/api/Tareas
+Content-Type: application/json
+
+{
+  "titulo": "Tarea sin responsable",
+  "id_estado": 9
+}
+
+### 4. Título con solo espacios (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Tareas
+Content-Type: application/json
+
+{
+  "titulo": "   ",
+  "id_estado": 9
+}
+
+### 5. Estado que no existe (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Tareas
+Content-Type: application/json
+
+{
+  "titulo": "Estado inexistente",
+  "id_estado": 999
+}
+
+### 6. Eliminar una tarea que no existe (esperado: 404 Not Found)
+DELETE {{Backend_HostAddress}}/api/Tareas/99999
