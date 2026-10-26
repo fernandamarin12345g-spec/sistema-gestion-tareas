@@ -66,6 +66,7 @@ async function cargarProyectos() {
         const respuesta = await fetch(API_PROYECTOS_URL);
         if (!respuesta.ok) throw new Error('Falló servidor en proyectos.');
         miListaDeProyectos = await respuesta.json();
+        renderizarProyectos(miListaDeProyectos);
     } catch (error) { console.error('Error:', error); }
 }
 
@@ -104,6 +105,7 @@ async function cargarTareas() {
 
         miListaDeTareas = await respuesta.json();
         aplicarFiltros();
+        renderizarDashboard();
     } catch (error) {
         console.error('Error de conexión:', error);
         contenedorTareas.innerHTML = '<p style="color: red;">Error: No pude conectar con el Backend.</p>';
@@ -334,6 +336,129 @@ function renderizarFiltrosTareas() {
         btn.onclick = () => filtrarVista(nombre);
         contenedorFiltros.appendChild(btn);
     });
+}
+
+
+// MÓDULO: MAESTRO DE PROYECTOS
+// La lista miListaDeProyectos y la función cargarProyectos() están en el módulo de tareas,
+// porque el formulario y los filtros de tareas también las usan.
+const contenedorProyectos = document.getElementById('contenedor-proyectos');
+const formCrearProyecto = document.getElementById('form-crear-proyecto');
+const inputNombreProyecto = document.getElementById('nombre-proyecto');
+const inputDescripcionProyecto = document.getElementById('descripcion-proyecto');
+const selectEstadoProyecto = document.getElementById('estado-proyecto');
+let idProyectoEnEdicion = null;
+
+// Clase CSS del color de cada estado de proyecto (Planificación -> estado-proyecto-planificacion)
+function claseEstadoProyecto(estado) {
+    const nombre = (estado || 'Activo').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return `badge-estado-proyecto estado-proyecto-${nombre}`;
+}
+
+function renderizarProyectos(proyectos) {
+    if (!contenedorProyectos) return;
+    contenedorProyectos.innerHTML = '';
+    contenedorProyectos.className = 'contenedor-datos-grid';
+
+    if (proyectos.length === 0) {
+        contenedorProyectos.innerHTML = '<div style="padding: 20px;">No hay proyectos registrados.</div>';
+        return;
+    }
+
+    const header = document.createElement('div');
+    header.className = 'fila-grid-proyectos encabezado-grid';
+    header.innerHTML = `<div>ID</div><div>Proyecto</div><div>Estado</div><div>Tareas</div><div style="text-align:right;">Acciones</div>`;
+    contenedorProyectos.appendChild(header);
+
+    proyectos.forEach(proyecto => {
+        const fila = document.createElement('div');
+        fila.className = 'fila-grid-proyectos';
+        const descripcion = proyecto.descripcion
+            ? `<br><small class="texto-secundario">${escaparHTML(proyecto.descripcion)}</small>`
+            : '';
+
+        fila.innerHTML = `
+            <div><strong>#${proyecto.id_proyecto}</strong></div>
+            <div>${escaparHTML(proyecto.nombre)}${descripcion}</div>
+            <div><span class="${claseEstadoProyecto(proyecto.estado)}">${escaparHTML(proyecto.estado)}</span></div>
+            <div>${proyecto.tareas_abiertas} abierta(s) de ${proyecto.total_tareas}</div>
+            <div class="acciones-grid">
+                <button class="btn-ver" onclick="verTareasDeProyecto(${proyecto.id_proyecto})">Ver tareas</button>
+                <button class="btn-editar" onclick="prepararEdicionProyecto(${proyecto.id_proyecto})">Editar</button>
+                <button class="btn-eliminar" onclick="eliminarProyecto(${proyecto.id_proyecto})">Eliminar</button>
+            </div>
+        `;
+        contenedorProyectos.appendChild(fila);
+    });
+}
+
+if (formCrearProyecto) {
+    formCrearProyecto.addEventListener('submit', async function(evento) {
+        evento.preventDefault();
+        const nombreTexto = inputNombreProyecto.value.trim();
+        if (nombreTexto === '') return;
+
+        const datosProyecto = {
+            nombre: nombreTexto,
+            descripcion: inputDescripcionProyecto.value.trim() || null,
+            estado: selectEstadoProyecto.value
+        };
+
+        try {
+            let respuesta;
+            if (idProyectoEnEdicion === null) {
+                respuesta = await fetch(API_PROYECTOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosProyecto) });
+            } else {
+                respuesta = await fetch(`${API_PROYECTOS_URL}/${idProyectoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosProyecto) });
+            }
+
+            // Se recarga todo porque los proyectos aparecen también en el formulario, los filtros y el dashboard
+            if (respuesta.ok) { cancelarEdicionProyecto(); inicializarSistema(); }
+            else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo guardar el proyecto.'); }
+        } catch (error) {
+            console.error('Error al procesar proyecto:', error);
+            alert('No se pudo conectar con el servidor.');
+        }
+    });
+}
+
+function prepararEdicionProyecto(id) {
+    const proyecto = miListaDeProyectos.find(p => p.id_proyecto === id);
+    if (!proyecto) return;
+
+    document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+    idProyectoEnEdicion = id;
+    inputNombreProyecto.value = proyecto.nombre;
+    inputDescripcionProyecto.value = proyecto.descripcion ?? '';
+    selectEstadoProyecto.value = proyecto.estado || 'Activo';
+    document.getElementById('btn-submit-proyecto').textContent = 'Actualizar Proyecto';
+    document.getElementById('btn-cancelar-proyecto').classList.add('visible');
+}
+
+function cancelarEdicionProyecto() {
+    idProyectoEnEdicion = null;
+    inputNombreProyecto.value = ''; inputDescripcionProyecto.value = ''; selectEstadoProyecto.value = 'Activo';
+    document.getElementById('btn-submit-proyecto').textContent = 'Agregar Proyecto';
+    document.getElementById('btn-cancelar-proyecto').classList.remove('visible');
+}
+
+async function eliminarProyecto(id) {
+    if (!confirm('¿Segura que deseas eliminar este proyecto?')) return;
+    try {
+        const respuesta = await fetch(`${API_PROYECTOS_URL}/${id}`, { method: 'DELETE' });
+        if (respuesta.ok) { inicializarSistema(); }
+        else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el proyecto.'); }
+    } catch (error) {
+        console.error('Error al eliminar proyecto:', error);
+        alert('No se pudo conectar con el servidor.');
+    }
+}
+
+// Lleva a la sección de Tareas con el filtro de ese proyecto ya aplicado
+function verTareasDeProyecto(id) {
+    document.getElementById('filtro-proyecto').value = String(id);
+    mostrarSeccion('tareas');
+    filtrarVista('Todas');
 }
 
 
@@ -708,6 +833,91 @@ async function eliminarUsuario(id) {
     } catch (error) {
         console.error('Error:', error);
         alert('No se pudo conectar con el servidor.');
+    }
+}
+
+
+// MÓDULO: DASHBOARD (INICIO)
+// Los indicadores se calculan en el navegador con la lista de tareas que ya devolvió la API.
+
+// Dibuja una lista de barras horizontales: nombre, barra proporcional y cantidad
+function dibujarBarras(idContenedor, datos) {
+    const contenedor = document.getElementById(idContenedor);
+    if (!contenedor) return;
+
+    if (datos.length === 0) {
+        contenedor.innerHTML = '<p class="texto-vacio">Sin datos para mostrar.</p>';
+        return;
+    }
+
+    const maximo = Math.max(...datos.map(d => d.valor));
+    contenedor.innerHTML = datos.map(d => {
+        const ancho = maximo > 0 ? Math.max((d.valor / maximo) * 100, d.valor > 0 ? 3 : 0) : 0;
+        const etiqueta = `${escaparHTML(d.nombre)}: ${d.valor} tarea(s)`;
+        return `
+            <div class="fila-barra" title="${etiqueta}">
+                <span class="nombre-barra">${escaparHTML(d.nombre)}</span>
+                <span class="pista-barra"><span class="relleno-barra" style="width:${ancho}%"></span></span>
+                <span class="valor-barra">${d.valor}</span>
+            </div>`;
+    }).join('');
+}
+
+// Cuenta cuántas tareas hay por cada valor de un campo (por ejemplo, por "estado")
+function contarPor(tareas, obtenerNombre) {
+    const conteo = {};
+    tareas.forEach(t => {
+        const nombre = obtenerNombre(t);
+        conteo[nombre] = (conteo[nombre] || 0) + 1;
+    });
+    return Object.entries(conteo)
+        .map(([nombre, valor]) => ({ nombre, valor }))
+        .sort((a, b) => b.valor - a.valor);
+}
+
+function renderizarDashboard() {
+    const contenedorKpi = document.getElementById('tarjetas-kpi');
+    if (!contenedorKpi) return;
+
+    const total = miListaDeTareas.length;
+    const cerradas = miListaDeTareas.filter(t => t.es_final).length;
+    const abiertas = total - cerradas;
+    const atrasadas = miListaDeTareas.filter(t => t.atrasada);
+
+    contenedorKpi.innerHTML = `
+        <div class="tarjeta-kpi"><span>Total de tareas</span><strong>${total}</strong></div>
+        <div class="tarjeta-kpi"><span>Abiertas</span><strong>${abiertas}</strong></div>
+        <div class="tarjeta-kpi ${atrasadas.length > 0 ? 'kpi-alerta' : ''}"><span>${atrasadas.length > 0 ? '⚠ ' : ''}Atrasadas</span><strong>${atrasadas.length}</strong></div>
+        <div class="tarjeta-kpi"><span>Cerradas</span><strong>${cerradas}</strong></div>
+    `;
+
+    // Por estado: se muestran todos los estados, también los que tienen 0 tareas
+    const porEstado = miListaDeEstados
+        .map(e => ({ nombre: e.nombre_estado, valor: miListaDeTareas.filter(t => t.id_estado === e.id_estado).length }))
+        .sort((a, b) => b.valor - a.valor);
+    dibujarBarras('grafico-estados', porEstado);
+
+    // Por responsable: solo tareas abiertas, para ver la carga de trabajo actual de cada persona
+    dibujarBarras('grafico-responsables', contarPor(miListaDeTareas.filter(t => !t.es_final), t => t.usuario_asignado || 'Sin asignar'));
+
+    dibujarBarras('grafico-proyectos', contarPor(miListaDeTareas, t => t.proyecto || 'Sin proyecto'));
+
+    // Lista de tareas atrasadas, la más vencida primero
+    const listaAtrasadas = document.getElementById('lista-atrasadas');
+    if (atrasadas.length === 0) {
+        listaAtrasadas.innerHTML = '<p class="texto-vacio">No hay tareas atrasadas. 🎉</p>';
+    } else {
+        listaAtrasadas.innerHTML = atrasadas
+            .sort((a, b) => a.fecha_limite.localeCompare(b.fecha_limite))
+            .map(t => `
+                <div class="fila-atrasada-dashboard">
+                    <div>
+                        <strong>#${t.id} ${escaparHTML(t.titulo)}</strong><br>
+                        <small class="texto-secundario">${escaparHTML(t.usuario_asignado)} · venció el ${formatearFecha(t.fecha_limite)}</small>
+                    </div>
+                    <button class="btn-ver" onclick="verDetalleTarea(${t.id})">Ver</button>
+                </div>`)
+            .join('');
     }
 }
 

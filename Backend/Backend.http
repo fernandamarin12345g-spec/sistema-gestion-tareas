@@ -193,3 +193,41 @@ GET {{Backend_HostAddress}}/api/Proyectos
 
 ### 30. Listar estados con es_final (esperado: 200 OK; Terminada y Cancelada con es_final true)
 GET {{Backend_HostAddress}}/api/Estados
+
+### ===== VERSIÓN 3: MAESTRO DE PROYECTOS =====
+
+### 31. Listar proyectos con conteo de tareas (esperado: 200 OK)
+GET {{Backend_HostAddress}}/api/Proyectos
+
+### 32. Crear proyecto (esperado: 201 Created)
+POST {{Backend_HostAddress}}/api/Proyectos
+Content-Type: application/json
+
+{
+  "nombre": "Proyecto de prueba",
+  "descripcion": "Se crea y se elimina en estas pruebas",
+  "estado": "Planificación"
+}
+
+### 33. Proyecto con nombre repetido, otras mayúsculas (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Proyectos
+Content-Type: application/json
+
+{
+  "nombre": "SISTEMA DE GESTIÓN DE TAREAS"
+}
+
+### 34. Proyecto con estado inválido (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Proyectos
+Content-Type: application/json
+
+{
+  "nombre": "Estado raro",
+  "estado": "Archivado"
+}
+
+### 35. Eliminar un proyecto que tiene tareas (esperado: 400 Bad Request)
+DELETE {{Backend_HostAddress}}/api/Proyectos/1
+
+### 36. Eliminar un proyecto que no existe (esperado: 404 Not Found)
+DELETE {{Backend_HostAddress}}/api/Proyectos/99999

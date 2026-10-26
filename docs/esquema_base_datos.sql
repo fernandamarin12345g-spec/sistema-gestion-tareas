@@ -1,9 +1,9 @@
 -- =====================================================================
--- ESQUEMA DE BASE DE DATOS (versión 2) - Sistema de Gestión y Seguimiento de Tareas
+-- ESQUEMA DE BASE DE DATOS (versión 3) - Sistema de Gestión y Seguimiento de Tareas
 -- Motor: SQLite
 -- Uso: crea la base completa desde cero, con datos iniciales.
 --      Ejecutar sobre un archivo vacío Backend/gestion_tareas.sqlite
--- Para actualizar una base existente de la versión 1, usar migracion_v2_tareas.sql
+-- Para actualizar una base existente: versión 1 -> migracion_v2_tareas.sql -> migracion_v3_proyectos.sql
 -- =====================================================================
 
 PRAGMA foreign_keys = ON;
@@ -20,7 +20,8 @@ CREATE TABLE Roles (
 CREATE TABLE Proyectos (
     id_proyecto INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre VARCHAR(100) NOT NULL,
-    estado VARCHAR(50) DEFAULT 'Activo'
+    estado VARCHAR(50) DEFAULT 'Activo',       -- Planificación, Activo, Pausado o Finalizado (lo valida la API)
+    descripcion TEXT
 );
 
 CREATE TABLE Estados (
@@ -94,9 +95,9 @@ INSERT INTO Roles (nombre_rol, is_admin) VALUES
 ('Líder de Proyecto', 0),
 ('Desarrollador', 0);
 
-INSERT INTO Proyectos (nombre, estado) VALUES
-('Sistema de Gestión de Tareas', 'Activo'),
-('Dashboard Comercial Power BI', 'Planificación');
+INSERT INTO Proyectos (nombre, estado, descripcion) VALUES
+('Sistema de Gestión de Tareas', 'Activo', 'Proyecto transversal de la práctica: web, API, móvil y escritorio.'),
+('Dashboard Comercial Power BI', 'Planificación', NULL);
 
 INSERT INTO Usuarios (nombre, correo, id_rol) VALUES
 ('Luis Abreu Acevedo', 'luis@strategicsoft.com', 1),

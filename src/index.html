@@ -13,6 +13,7 @@
             <ul>
                 <li><a href="#home" onclick="mostrarSeccion('home')">Inicio</a></li>
                 <li><a href="#tareas" onclick="mostrarSeccion('tareas')">Tareas</a></li>
+                <li><a href="#proyectos" onclick="mostrarSeccion('proyectos')">Proyectos</a></li>
                 <li><a href="#estados" onclick="mostrarSeccion('estados')">Estados</a></li>
                 <li><a href="#roles" onclick="mostrarSeccion('roles')">Roles</a></li>
                 <li><a href="#usuarios" onclick="mostrarSeccion('usuarios')">Usuarios</a></li>
@@ -26,6 +27,30 @@
         <section id="home">
             <h1>Sistema de Gestión y Seguimiento de Tareas</h1>
             <p>Plataforma centralizada para organizar responsabilidades, prioridades y estados de equipos de desarrollo.</p>
+
+            <!-- Dashboard: indicadores calculados con las tareas que devuelve la API -->
+            <div id="dashboard">
+                <div id="tarjetas-kpi" class="tarjetas-kpi"></div>
+
+                <div class="paneles-dashboard">
+                    <div class="panel-dashboard">
+                        <h3>Tareas por estado</h3>
+                        <div id="grafico-estados"></div>
+                    </div>
+                    <div class="panel-dashboard">
+                        <h3>Tareas abiertas por responsable</h3>
+                        <div id="grafico-responsables"></div>
+                    </div>
+                    <div class="panel-dashboard">
+                        <h3>Tareas por proyecto</h3>
+                        <div id="grafico-proyectos"></div>
+                    </div>
+                    <div class="panel-dashboard">
+                        <h3>Tareas atrasadas</h3>
+                        <div id="lista-atrasadas"></div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- Sección de Tareas (Dashboard conectado a la API) -->
@@ -118,6 +143,37 @@
 
             <div id="contenedor-detalle-tarea" class="tarjeta-detalle">
                 <p>Cargando tarea...</p>
+            </div>
+        </section>
+
+<!-- Sección de Maestro de Proyectos -->
+        <section id="proyectos" class="seccion-vista">
+            <h2>Proyectos</h2>
+            <p>Administración de los proyectos o contextos a los que pertenecen las tareas.</p>
+
+            <form id="form-crear-proyecto">
+                <input type="text" id="nombre-proyecto" placeholder="Nombre del proyecto..." maxlength="100" required>
+
+                <textarea id="descripcion-proyecto" rows="2" maxlength="1000" placeholder="Descripción del proyecto (opcional)..."></textarea>
+
+                <div class="campo-formulario">
+                    <label for="estado-proyecto">Estado del proyecto</label>
+                    <select id="estado-proyecto" class="select-formulario">
+                        <option value="Planificación">Planificación</option>
+                        <option value="Activo" selected>Activo</option>
+                        <option value="Pausado">Pausado</option>
+                        <option value="Finalizado">Finalizado</option>
+                    </select>
+                </div>
+
+                <div class="contenedor-botones-formulario">
+                    <button type="submit" id="btn-submit-proyecto">Agregar Proyecto</button>
+                    <button type="button" id="btn-cancelar-proyecto" class="btn-cancelar" onclick="cancelarEdicionProyecto()">Cancelar</button>
+                </div>
+            </form>
+
+            <div id="contenedor-proyectos">
+                <p>Cargando proyectos...</p>
             </div>
         </section>
 
