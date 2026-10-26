@@ -42,3 +42,50 @@ Content-Type: application/json
 
 ### 6. Eliminar una tarea que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Tareas/99999
+
+
+### 7. Listar usuarios (esperado: 200 OK)
+GET {{Backend_HostAddress}}/api/Usuarios
+
+### 8. Correo con formato inválido (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Usuarios
+Content-Type: application/json
+
+{
+  "nombre": "Prueba Correo",
+  "correo": "esto-no-es-un-correo",
+  "id_rol": 3
+}
+
+### 9. Nombre vacío (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Usuarios
+Content-Type: application/json
+
+{
+  "nombre": "   ",
+  "correo": "prueba@correo.com",
+  "id_rol": 3
+}
+
+### 10. Rol que no existe (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Usuarios
+Content-Type: application/json
+
+{
+  "nombre": "Prueba Rol",
+  "correo": "prueba.rol@correo.com",
+  "id_rol": 999
+}
+
+### 11. Correo repetido (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Usuarios
+Content-Type: application/json
+
+{
+  "nombre": "Otro Luis",
+  "correo": "luis@strategicsoft.com",
+  "id_rol": 3
+}
+
+### 12. Eliminar un usuario que no existe (esperado: 404 Not Found)
+DELETE {{Backend_HostAddress}}/api/Usuarios/99999
