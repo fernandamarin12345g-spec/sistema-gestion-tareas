@@ -1,0 +1,14 @@
+# .NET / Visual Studio (archivos que se generan al compilar)
+Backend/bin/
+Backend/obj/
+Backend/.vs/
+*.user
+
+# Base de datos local (se crea con docs/esquema_base_datos.sql)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Windows
+desktop.ini
+Thumbs.db
