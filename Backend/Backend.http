@@ -31,7 +31,7 @@ Content-Type: application/json
   "id_estado": 9
 }
 
-### 5. Estado que no existe (esperado: 400 Bad Request)
+### 5. Estado que no existe (esperado: 400 Bad Request, "El estado seleccionado no existe.")
 POST {{Backend_HostAddress}}/api/Tareas
 Content-Type: application/json
 
@@ -137,4 +137,59 @@ DELETE {{Backend_HostAddress}}/api/Roles/1
 ### 20. Eliminar un rol que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Roles/99999
 
+### ===== VERSIÓN 2: CAMPOS NUEVOS DE LA TAREA =====
 
+### 21. Listar tareas con los campos nuevos (esperado: 200 OK)
+GET {{Backend_HostAddress}}/api/Tareas
+
+### 22. Detalle de una tarea (esperado: 200 OK)
+GET {{Backend_HostAddress}}/api/Tareas/5
+
+### 23. Detalle de una tarea que no existe (esperado: 404 Not Found)
+GET {{Backend_HostAddress}}/api/Tareas/99999
+
+### 24. Crear tarea completa con fecha límite vencida (esperado: 201 Created)
+POST {{Backend_HostAddress}}/api/Tareas
+Content-Type: application/json
+
+{
+  "titulo": "Prueba tarea atrasada",
+  "descripcion": "Tarea de prueba con todos los campos nuevos",
+  "IdUsuarioResponsable": 2,
+  "id_estado": 9,
+  "id_proyecto": 1,
+  "prioridad": "Alta",
+  "fecha_limite": "2026-10-20"
+}
+
+### 25. Filtrar solo las tareas atrasadas (esperado: 200 OK, solo la de la prueba 24)
+GET {{Backend_HostAddress}}/api/Tareas?atrasadas=true
+
+### 26. Filtrar por prioridad (esperado: 200 OK, solo tareas de prioridad Alta)
+GET {{Backend_HostAddress}}/api/Tareas?prioridad=Alta
+
+### 27. Prioridad inválida (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Tareas
+Content-Type: application/json
+
+{
+  "titulo": "Prioridad mal escrita",
+  "id_estado": 9,
+  "prioridad": "Urgentísima"
+}
+
+### 28. Fecha límite con formato inválido (esperado: 400 Bad Request)
+POST {{Backend_HostAddress}}/api/Tareas
+Content-Type: application/json
+
+{
+  "titulo": "Fecha mal escrita",
+  "id_estado": 9,
+  "fecha_limite": "20/11/2026"
+}
+
+### 29. Listar proyectos (esperado: 200 OK)
+GET {{Backend_HostAddress}}/api/Proyectos
+
+### 30. Listar estados con es_final (esperado: 200 OK; Terminada y Cancelada con es_final true)
+GET {{Backend_HostAddress}}/api/Estados

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
 namespace Backend.Controllers
@@ -17,6 +17,7 @@ namespace Backend.Controllers
         public class EstadoNuevo
         {
             public required string nombre_estado { get; set; }
+            public bool? es_final { get; set; }   // true = el estado cierra la tarea (ej. Terminada, Cancelada)
         }
 
         // Valida el nombre antes de tocar la base de datos. Devuelve el mensaje de error o null.
@@ -54,7 +55,7 @@ namespace Backend.Controllers
             {
                 conexion.Open();
                 var comando = conexion.CreateCommand();
-                comando.CommandText = "SELECT id_estado, nombre_estado FROM Estados";
+                comando.CommandText = "SELECT id_estado, nombre_estado, es_final FROM Estados";
 
                 using (var lector = comando.ExecuteReader())
                 {
@@ -63,7 +64,8 @@ namespace Backend.Controllers
                         listaEstados.Add(new
                         {
                             id_estado = lector.GetInt32(0),
-                            nombre_estado = lector.GetString(1)
+                            nombre_estado = lector.GetString(1),
+                            es_final = lector.GetInt64(2) == 1
                         });
                     }
                 }
@@ -98,9 +100,10 @@ namespace Backend.Controllers
 
                     var comando = conexion.CreateCommand();
                     comando.CommandText = @"
-                        INSERT INTO Estados (nombre_estado) VALUES (@nombre);
+                        INSERT INTO Estados (nombre_estado, es_final) VALUES (@nombre, @esFinal);
                         SELECT last_insert_rowid();";
                     comando.Parameters.AddWithValue("@nombre", nombre);
+                    comando.Parameters.AddWithValue("@esFinal", nuevoEstado.es_final == true ? 1 : 0);
                     nuevoId = (long)(comando.ExecuteScalar() ?? 0L);
                 }
             }
@@ -137,8 +140,10 @@ namespace Backend.Controllers
                     }
 
                     var comando = conexion.CreateCommand();
-                    comando.CommandText = "UPDATE Estados SET nombre_estado = @nombre WHERE id_estado = @id";
+                    // Si no se envía es_final, se conserva el valor que ya tenía (COALESCE)
+                    comando.CommandText = "UPDATE Estados SET nombre_estado = @nombre, es_final = COALESCE(@esFinal, es_final) WHERE id_estado = @id";
                     comando.Parameters.AddWithValue("@nombre", nombre);
+                    comando.Parameters.AddWithValue("@esFinal", estadoActualizado.es_final.HasValue ? (object)(estadoActualizado.es_final.Value ? 1 : 0) : DBNull.Value);
                     comando.Parameters.AddWithValue("@id", id);
 
                     int filasAfectadas = comando.ExecuteNonQuery();
