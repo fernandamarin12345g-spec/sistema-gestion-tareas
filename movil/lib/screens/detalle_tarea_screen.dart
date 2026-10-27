@@ -75,7 +75,7 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
 
     setState(() => _trabajando = true);
     try {
-      await widget.servicio.cambiarEstado(_tarea, elegido.id);
+      await widget.servicio.cambiarEstado(_tarea.id, elegido.id);
       await _recargar();
       if (mounted) _mostrarMensaje('Estado cambiado a ${elegido.nombre}');
     } on ApiException catch (e) {
@@ -116,16 +116,24 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
   @override
   Widget build(BuildContext context) {
     final colores = coloresPrioridad(_tarea.prioridad);
+    final sesion = widget.servicio.sesion;
+
+    // Permisos (la API también los valida): eliminar solo Administrador;
+    // cambiar estado Administrador, Líder o el responsable de la tarea.
+    final puedeEliminar = sesion?.esAdmin ?? false;
+    final puedeCambiarEstado =
+        (sesion?.gestionaTareas ?? false) || (sesion != null && _tarea.idUsuario == sesion.idUsuario);
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Tarea #${_tarea.id}'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Eliminar',
-            onPressed: _trabajando ? null : _eliminar,
-          ),
+          if (puedeEliminar)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Eliminar',
+              onPressed: _trabajando ? null : _eliminar,
+            ),
         ],
       ),
       body: RefreshIndicator(
@@ -167,12 +175,14 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
             _Dato(etiqueta: 'Fecha límite', valor: formatearFecha(_tarea.fechaLimite)),
             _Dato(etiqueta: 'Fecha de finalización', valor: formatearFecha(_tarea.fechaFinalizacion)),
             _Dato(etiqueta: 'Última actualización', valor: formatearFecha(_tarea.fechaActualizacion)),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _trabajando ? null : _cambiarEstado,
-              icon: const Icon(Icons.swap_horiz),
-              label: const Text('Cambiar estado'),
-            ),
+            if (puedeCambiarEstado) ...[
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _trabajando ? null : _cambiarEstado,
+                icon: const Icon(Icons.swap_horiz),
+                label: const Text('Cambiar estado'),
+              ),
+            ],
           ],
         ),
       ),

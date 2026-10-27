@@ -5,6 +5,7 @@ import '../services/tarea_service.dart';
 import '../utils/formato.dart';
 import 'detalle_tarea_screen.dart';
 import 'formulario_tarea_screen.dart';
+import 'login_screen.dart';
 
 class ListaTareasScreen extends StatefulWidget {
   final TareaService servicio;
@@ -45,6 +46,9 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
         _fechaCache = resultado.fechaCache;
         _cargando = false;
       });
+    } on SesionExpiradaException catch (e) {
+      // El token venció: se vuelve al inicio de sesión
+      await _cerrarSesion(mensaje: e.mensaje);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -52,6 +56,16 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
         _cargando = false;
       });
     }
+  }
+
+  /// Borra la sesión del teléfono y vuelve a la pantalla de inicio de sesión.
+  Future<void> _cerrarSesion({String? mensaje}) async {
+    await widget.servicio.cerrarSesion();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => LoginScreen(servicio: widget.servicio, mensaje: mensaje)),
+      (_) => false,
+    );
   }
 
   Future<void> _abrirFormulario() async {
@@ -84,14 +98,31 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Mi cuenta',
+            onSelected: (opcion) {
+              if (opcion == 'salir') _cerrarSesion();
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem<String>(
+                enabled: false,
+                child: Text('${widget.servicio.sesion?.nombre ?? ''}\n${widget.servicio.sesion?.rol ?? ''}'),
+              ),
+              const PopupMenuItem<String>(value: 'salir', child: Text('Cerrar sesión')),
+            ],
+          ),
         ],
       ),
       body: _construirCuerpo(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _abrirFormulario,
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva tarea'),
-      ),
+      // Solo Administrador y Líder de Proyecto pueden crear tareas
+      floatingActionButton: (widget.servicio.sesion?.gestionaTareas ?? false)
+          ? FloatingActionButton.extended(
+              onPressed: _abrirFormulario,
+              icon: const Icon(Icons.add),
+              label: const Text('Nueva tarea'),
+            )
+          : null,
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../models/catalogos.dart';
+import '../models/sesion.dart';
 import '../models/tarea.dart';
 
 /// Error con un mensaje listo para mostrarle al usuario.
@@ -19,6 +20,11 @@ class ApiException implements Exception {
   String toString() => mensaje;
 }
 
+/// La API respondió 401: el token venció o no es válido. Hay que volver a iniciar sesión.
+class SesionExpiradaException extends ApiException {
+  SesionExpiradaException() : super('Tu sesión expiró. Vuelve a iniciar sesión.');
+}
+
 /// Resultado de pedir la lista de tareas: las tareas y si vienen del servidor o de la copia guardada.
 class ResultadoTareas {
   final List<Tarea> tareas;
@@ -30,13 +36,17 @@ class ResultadoTareas {
 
 /// Servicio que consume la MISMA API que usa el dashboard web.
 class TareaService {
-  // Llaves con las que se guarda la última lista de tareas en el teléfono (persistencia local)
+  // Llaves con las que se guardan datos en el teléfono (persistencia local)
   static const String _claveCache = 'tareas_cache';
   static const String _claveFechaCache = 'tareas_cache_fecha';
+  static const String _claveSesion = 'sesion';
 
   static const Duration _tiempoMaximo = Duration(seconds: 8);
 
   final http.Client _cliente;
+
+  /// Sesión actual. Mientras sea null, la API rechaza las peticiones (401).
+  Sesion? sesion;
 
   TareaService({http.Client? cliente}) : _cliente = cliente ?? http.Client();
 
@@ -46,7 +56,11 @@ class TareaService {
 
   Uri _url(String ruta) => Uri.parse('$apiBaseUrl$ruta');
 
-  static const Map<String, String> _encabezadosJson = {'Content-Type': 'application/json'};
+  /// Encabezados de cada petición: JSON y el token JWT (Authorization: Bearer ...)
+  Map<String, String> get _encabezados => {
+        'Content-Type': 'application/json',
+        if (sesion != null) 'Authorization': 'Bearer ${sesion!.token}',
+      };
 
   /// Ejecuta una petición y convierte cualquier falla en un ApiException con un mensaje claro.
   Future<http.Response> _enviar(Future<http.Response> Function() peticion) async {
@@ -54,6 +68,12 @@ class TareaService {
       final respuesta = await peticion().timeout(_tiempoMaximo);
       if (respuesta.statusCode >= 200 && respuesta.statusCode < 300) {
         return respuesta;
+      }
+      if (respuesta.statusCode == 401) {
+        throw SesionExpiradaException();
+      }
+      if (respuesta.statusCode == 403) {
+        throw ApiException(_leerMensaje(respuesta, porDefecto: 'No tienes permiso para realizar esta acción.'));
       }
       throw ApiException(_leerMensaje(respuesta));
     } on ApiException {
@@ -66,7 +86,7 @@ class TareaService {
   }
 
   /// Lee el campo "mensaje" que devuelve la API en los errores (400, 404...).
-  String _leerMensaje(http.Response respuesta) {
+  String _leerMensaje(http.Response respuesta, {String? porDefecto}) {
     try {
       final datos = jsonDecode(utf8.decode(respuesta.bodyBytes));
       if (datos is Map<String, dynamic> && datos['mensaje'] is String) {
@@ -75,11 +95,79 @@ class TareaService {
     } catch (_) {
       // La respuesta no era JSON: se usa el mensaje genérico
     }
-    return 'Error del servidor (código ${respuesta.statusCode}).';
+    return porDefecto ?? 'Error del servidor (código ${respuesta.statusCode}).';
   }
 
   /// Decodifica el cuerpo en UTF-8 para que las tildes y la ñ se vean bien.
   dynamic _decodificar(http.Response respuesta) => jsonDecode(utf8.decode(respuesta.bodyBytes));
+
+  // ---------------------------------------------------------------------
+  // Sesión (inicio de sesión con JWT)
+  // ---------------------------------------------------------------------
+
+  /// POST /api/Auth/login. Si los datos son correctos, guarda la sesión en el teléfono.
+  Future<Sesion> iniciarSesion(String correo, String contrasena) async {
+    final http.Response respuesta;
+    try {
+      respuesta = await _cliente
+          .post(
+            _url('/Auth/login'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'correo': correo, 'contrasena': contrasena}),
+          )
+          .timeout(_tiempoMaximo);
+    } on TimeoutException {
+      throw ApiException('El servidor tardó demasiado en responder.');
+    } on Exception {
+      throw ApiException('No se pudo conectar con el servidor. Revisa que el backend esté corriendo.');
+    }
+
+    // En el login, un 401 significa correo o contraseña incorrectos (no sesión vencida)
+    if (respuesta.statusCode != 200) {
+      throw ApiException(_leerMensaje(respuesta, porDefecto: 'No se pudo iniciar sesión.'));
+    }
+
+    final nuevaSesion = Sesion.desdeLogin(_decodificar(respuesta) as Map<String, dynamic>);
+    sesion = nuevaSesion;
+
+    try {
+      final preferencias = await SharedPreferences.getInstance();
+      await preferencias.setString(_claveSesion, jsonEncode(nuevaSesion.toJson()));
+    } catch (_) {
+      // Si no se puede guardar, la sesión dura mientras la app esté abierta
+    }
+    return nuevaSesion;
+  }
+
+  /// Recupera la sesión guardada al abrir la app. Devuelve null si no hay o si el token ya venció.
+  Future<Sesion?> cargarSesionGuardada() async {
+    try {
+      final preferencias = await SharedPreferences.getInstance();
+      final texto = preferencias.getString(_claveSesion);
+      if (texto == null) return null;
+
+      final guardada = Sesion.desdeLogin(jsonDecode(texto) as Map<String, dynamic>);
+      if (!guardada.estaVigente) return null;
+
+      sesion = guardada;
+      return guardada;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Borra la sesión y la copia de tareas (para que otro usuario no vea datos ajenos).
+  Future<void> cerrarSesion() async {
+    sesion = null;
+    try {
+      final preferencias = await SharedPreferences.getInstance();
+      await preferencias.remove(_claveSesion);
+      await preferencias.remove(_claveCache);
+      await preferencias.remove(_claveFechaCache);
+    } catch (_) {
+      // Nada que borrar
+    }
+  }
 
   // ---------------------------------------------------------------------
   // Tareas
@@ -88,12 +176,14 @@ class TareaService {
   /// GET /api/Tareas. Si no hay conexión, devuelve la última lista guardada en el teléfono.
   Future<ResultadoTareas> obtenerTareas() async {
     try {
-      final respuesta = await _enviar(() => _cliente.get(_url('/Tareas')));
+      final respuesta = await _enviar(() => _cliente.get(_url('/Tareas'), headers: _encabezados));
       final cuerpo = utf8.decode(respuesta.bodyBytes);
       final lista = (jsonDecode(cuerpo) as List).map((e) => Tarea.fromJson(e as Map<String, dynamic>)).toList();
 
       await _guardarCache(cuerpo);
       return ResultadoTareas(tareas: lista);
+    } on SesionExpiradaException {
+      rethrow; // Sin sesión válida no se muestran datos guardados
     } on ApiException {
       final copia = await _leerCache();
       if (copia != null) return copia;
@@ -103,11 +193,11 @@ class TareaService {
 
   /// GET /api/Tareas/{id}: el detalle actualizado de una tarea.
   Future<Tarea> obtenerTarea(int id) async {
-    final respuesta = await _enviar(() => _cliente.get(_url('/Tareas/$id')));
+    final respuesta = await _enviar(() => _cliente.get(_url('/Tareas/$id'), headers: _encabezados));
     return Tarea.fromJson(_decodificar(respuesta) as Map<String, dynamic>);
   }
 
-  /// POST /api/Tareas
+  /// POST /api/Tareas (solo Administrador y Líder de Proyecto)
   Future<void> crearTarea({
     required String titulo,
     String? descripcion,
@@ -126,27 +216,19 @@ class TareaService {
       'prioridad': prioridad,
       'fecha_limite': fechaLimite,
     });
-    await _enviar(() => _cliente.post(_url('/Tareas'), headers: _encabezadosJson, body: cuerpo));
+    await _enviar(() => _cliente.post(_url('/Tareas'), headers: _encabezados, body: cuerpo));
   }
 
-  /// PUT /api/Tareas/{id} cambiando solo el estado.
-  /// El PUT de la API reemplaza la tarea completa, por eso se envían también los demás datos.
-  Future<void> cambiarEstado(Tarea tarea, int idEstadoNuevo) async {
-    final cuerpo = jsonEncode({
-      'titulo': tarea.titulo,
-      'descripcion': tarea.descripcion,
-      'IdUsuarioResponsable': tarea.idUsuario,
-      'id_estado': idEstadoNuevo,
-      'id_proyecto': tarea.idProyecto,
-      'prioridad': tarea.prioridad,
-      'fecha_limite': tarea.fechaLimite,
-    });
-    await _enviar(() => _cliente.put(_url('/Tareas/${tarea.id}'), headers: _encabezadosJson, body: cuerpo));
+  /// PATCH /api/Tareas/{id}/estado: cambia solo el estado.
+  /// Un Desarrollador puede usarlo con las tareas asignadas a él.
+  Future<void> cambiarEstado(int idTarea, int idEstadoNuevo) async {
+    final cuerpo = jsonEncode({'id_estado': idEstadoNuevo});
+    await _enviar(() => _cliente.patch(_url('/Tareas/$idTarea/estado'), headers: _encabezados, body: cuerpo));
   }
 
-  /// DELETE /api/Tareas/{id}
+  /// DELETE /api/Tareas/{id} (solo Administrador)
   Future<void> eliminarTarea(int id) async {
-    await _enviar(() => _cliente.delete(_url('/Tareas/$id')));
+    await _enviar(() => _cliente.delete(_url('/Tareas/$id'), headers: _encabezados));
   }
 
   // ---------------------------------------------------------------------
@@ -154,17 +236,17 @@ class TareaService {
   // ---------------------------------------------------------------------
 
   Future<List<Estado>> obtenerEstados() async {
-    final respuesta = await _enviar(() => _cliente.get(_url('/Estados')));
+    final respuesta = await _enviar(() => _cliente.get(_url('/Estados'), headers: _encabezados));
     return (_decodificar(respuesta) as List).map((e) => Estado.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<Proyecto>> obtenerProyectos() async {
-    final respuesta = await _enviar(() => _cliente.get(_url('/Proyectos')));
+    final respuesta = await _enviar(() => _cliente.get(_url('/Proyectos'), headers: _encabezados));
     return (_decodificar(respuesta) as List).map((e) => Proyecto.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<Usuario>> obtenerUsuarios() async {
-    final respuesta = await _enviar(() => _cliente.get(_url('/Usuarios')));
+    final respuesta = await _enviar(() => _cliente.get(_url('/Usuarios'), headers: _encabezados));
     return (_decodificar(respuesta) as List).map((e) => Usuario.fromJson(e as Map<String, dynamic>)).toList();
   }
 
