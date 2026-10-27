@@ -27,7 +27,12 @@ if (app.Environment.IsDevelopment())
 // Activo la política de CORS que definí antes de mapear los controladores.
 app.UseCors("PermitirFrontend");
 
-app.UseHttpsRedirection();
+// En desarrollo NO se redirige a HTTPS: la app móvil en el emulador usa http://10.0.2.2:5293
+// y el emulador no confía en el certificado de desarrollo. En producción sí se redirige.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthorization();
 
 // Mapeo los controladores para que los endpoints queden accesibles.

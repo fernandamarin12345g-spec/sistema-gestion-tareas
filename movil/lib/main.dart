@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+
 import 'screens/lista_tareas_screen.dart';
+import 'services/tarea_service.dart';
 
 void main() {
-  runApp(const AppGestionTareas());
+  runApp(AppGestionTareas(servicio: TareaService()));
 }
 
 class AppGestionTareas extends StatelessWidget {
-  const AppGestionTareas({super.key});
+  /// El servicio que habla con la API. En las pruebas se reemplaza por uno falso.
+  final TareaService servicio;
+
+  const AppGestionTareas({super.key, required this.servicio});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +22,7 @@ class AppGestionTareas extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: const ListaTareasScreen(),
+      home: ListaTareasScreen(servicio: servicio),
     );
   }
 }
