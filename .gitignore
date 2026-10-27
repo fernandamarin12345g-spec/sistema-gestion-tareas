@@ -2,6 +2,9 @@
 Backend/bin/
 Backend/obj/
 Backend/.vs/
+escritorio/bin/
+escritorio/obj/
+escritorio/.vs/
 *.user
 
 # Base de datos local (se crea con docs/esquema_base_datos.sql)
