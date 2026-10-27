@@ -7,6 +7,18 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Pantalla de inicio de sesión: cubre toda la app hasta que el usuario ingresa -->
+    <div id="pantalla-login" class="pantalla-login oculto">
+        <form id="form-login" class="tarjeta-login">
+            <h1>ESA SAS</h1>
+            <p>Sistema de Gestión y Seguimiento de Tareas</p>
+            <input type="email" id="correo-login" placeholder="Correo electrónico" autocomplete="username" required>
+            <input type="password" id="contrasena-login" placeholder="Contraseña" autocomplete="current-password" required>
+            <p id="error-login" class="error-login" role="alert"></p>
+            <button type="submit" id="btn-login">Ingresar</button>
+        </form>
+    </div>
+
     <!-- Encabezado y barra de navegación superior -->
     <header>
         <nav>
@@ -14,11 +26,14 @@
                 <li><a href="#home" onclick="mostrarSeccion('home')">Inicio</a></li>
                 <li><a href="#tareas" onclick="mostrarSeccion('tareas')">Tareas</a></li>
                 <li><a href="#proyectos" onclick="mostrarSeccion('proyectos')">Proyectos</a></li>
-                <li><a href="#estados" onclick="mostrarSeccion('estados')">Estados</a></li>
-                <li><a href="#roles" onclick="mostrarSeccion('roles')">Roles</a></li>
-                <li><a href="#usuarios" onclick="mostrarSeccion('usuarios')">Usuarios</a></li>
+                <li class="solo-admin"><a href="#estados" onclick="mostrarSeccion('estados')">Estados</a></li>
+                <li class="solo-admin"><a href="#roles" onclick="mostrarSeccion('roles')">Roles</a></li>
+                <li class="solo-admin"><a href="#usuarios" onclick="mostrarSeccion('usuarios')">Usuarios</a></li>
             </ul>
         </nav>
+
+        <!-- Usuario que inició sesión (se llena desde JS) -->
+        <div id="usuario-sesion" class="usuario-sesion"></div>
     </header>
 
     <!-- Contenido principal de la aplicación web -->
@@ -58,7 +73,7 @@
             <h2>Tareas</h2>
 
             <!-- Formulario para crear o editar tareas en la API -->
-            <form id="form-crear-tarea">
+            <form id="form-crear-tarea" class="solo-gestion">
                 <input type="text" id="titulo-tarea" placeholder="Escribe el título de la tarea..." maxlength="200" required>
 
                 <textarea id="descripcion-tarea" rows="3" maxlength="2000" placeholder="Descripción de la tarea (opcional)..."></textarea>
@@ -151,7 +166,7 @@
             <h2>Proyectos</h2>
             <p>Administración de los proyectos o contextos a los que pertenecen las tareas.</p>
 
-            <form id="form-crear-proyecto">
+            <form id="form-crear-proyecto" class="solo-admin">
                 <input type="text" id="nombre-proyecto" placeholder="Nombre del proyecto..." maxlength="100" required>
 
                 <textarea id="descripcion-proyecto" rows="2" maxlength="1000" placeholder="Descripción del proyecto (opcional)..."></textarea>
@@ -218,6 +233,13 @@
                     </label>
                 </div>
 
+                <div class="contenedor-checkbox">
+                    <label class="label-checkbox">
+                        <input type="checkbox" id="gestiona-tareas-rol" class="checkbox-admin">
+                        <strong>¿Este rol puede crear y editar tareas? (por ejemplo Líder de Proyecto)</strong>
+                    </label>
+                </div>
+
                 <div class="contenedor-botones-formulario">
                     <button type="submit" id="btn-submit-rol">Agregar Rol</button>
                     <button type="button" id="btn-cancelar-rol" class="btn-cancelar" onclick="cancelarEdicionRol()">Cancelar</button>
@@ -237,6 +259,7 @@
             <form id="form-crear-usuario">
                 <input type="text" id="nombre-usuario" placeholder="Nombre completo del usuario..." required>
                 <input type="email" id="correo-usuario" placeholder="Correo electrónico..." required>
+                <input type="password" id="contrasena-usuario" placeholder="Contraseña (mínimo 8 caracteres)..." autocomplete="new-password">
 
                 <select id="rol-usuario" class="select-formulario" required>
                     <option value="">Seleccionando roles disponibles...</option>

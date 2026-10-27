@@ -1,4 +1,6 @@
 using System.Globalization;
+using Backend.Seguridad;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
@@ -228,6 +230,7 @@ namespace Backend.Controllers
 
         // 3. CREAR TAREA (POST)
         [HttpPost]
+        [Authorize(Policy = Politicas.GestionTareas)]
         public IActionResult CrearTarea([FromBody] TareaDto nuevaTarea)
         {
             string? error = ValidarTarea(nuevaTarea);
@@ -283,6 +286,7 @@ namespace Backend.Controllers
 
         // 4. ACTUALIZAR TAREA (PUT)
         [HttpPut("{id}")]
+        [Authorize(Policy = Politicas.GestionTareas)]
         public IActionResult ActualizarTarea(int id, [FromBody] TareaDto tareaActualizada)
         {
             string? error = ValidarTarea(tareaActualizada);
@@ -345,8 +349,91 @@ namespace Backend.Controllers
             }
         }
 
-        // 5. ELIMINAR TAREA (DELETE)
+        public class CambioEstadoDto
+        {
+            public int id_estado { get; set; }
+        }
+
+        // 5. CAMBIAR SOLO EL ESTADO (PATCH /api/Tareas/{id}/estado)
+        // Reglas de negocio:
+        //  - Administrador y Líder de Proyecto pueden cambiar el estado de cualquier tarea.
+        //  - Un Desarrollador solo puede cambiar el estado de las tareas asignadas a él.
+        //  - Solo Administrador o Líder pueden reabrir una tarea cerrada (de Terminada/Cancelada a otro estado).
+        [HttpPatch("{id}/estado")]
+        public IActionResult CambiarEstado(int id, [FromBody] CambioEstadoDto datos)
+        {
+            if (datos.id_estado <= 0)
+            {
+                return BadRequest(new { mensaje = "Debes seleccionar un estado válido." });
+            }
+
+            string ahora = DateTime.Now.ToString(FormatoFechaHora, CultureInfo.InvariantCulture);
+            bool puedeGestionar = User.GestionaTareas();
+
+            using (var conexion = new SqliteConnection(CadenaConexion))
+            {
+                conexion.Open();
+
+                int? idResponsable;
+                bool estadoActualEsFinal;
+                using (var comandoTarea = conexion.CreateCommand())
+                {
+                    comandoTarea.CommandText = @"
+                        SELECT t.id_usuario_responsable, COALESCE(e.es_final, 0)
+                        FROM Tareas t
+                        LEFT JOIN Estados e ON t.id_estado = e.id_estado
+                        WHERE t.id_tarea = @id";
+                    comandoTarea.Parameters.AddWithValue("@id", id);
+
+                    using (var lector = comandoTarea.ExecuteReader())
+                    {
+                        if (!lector.Read())
+                        {
+                            return NotFound(new { mensaje = "Tarea no encontrada" });
+                        }
+                        idResponsable = lector.IsDBNull(0) ? null : lector.GetInt32(0);
+                        estadoActualEsFinal = lector.GetInt64(1) == 1;
+                    }
+                }
+
+                if (!puedeGestionar && idResponsable != User.IdUsuario())
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        new { mensaje = "Solo puedes cambiar el estado de las tareas asignadas a ti." });
+                }
+
+                bool? nuevoEsFinal = ConsultarEsFinal(conexion, datos.id_estado);
+                if (nuevoEsFinal == null)
+                {
+                    return BadRequest(new { mensaje = "El estado seleccionado no existe." });
+                }
+
+                if (estadoActualEsFinal && nuevoEsFinal == false && !puedeGestionar)
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        new { mensaje = "Solo un Líder de Proyecto o un Administrador puede reabrir una tarea cerrada." });
+                }
+
+                var comando = conexion.CreateCommand();
+                comando.CommandText = @"
+                    UPDATE Tareas
+                    SET id_estado = @estado,
+                        fecha_finalizacion = CASE WHEN @esFinal = 1 THEN COALESCE(fecha_finalizacion, @ahora) ELSE NULL END,
+                        fecha_actualizacion = @ahora
+                    WHERE id_tarea = @id";
+                comando.Parameters.AddWithValue("@estado", datos.id_estado);
+                comando.Parameters.AddWithValue("@esFinal", nuevoEsFinal == true ? 1 : 0);
+                comando.Parameters.AddWithValue("@ahora", ahora);
+                comando.Parameters.AddWithValue("@id", id);
+                comando.ExecuteNonQuery();
+            }
+
+            return Ok(new { mensaje = "Estado actualizado exitosamente" });
+        }
+
+        // 6. ELIMINAR TAREA (DELETE)
         [HttpDelete("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult EliminarTarea(int id)
         {
             using (var conexion = new SqliteConnection(CadenaConexion))

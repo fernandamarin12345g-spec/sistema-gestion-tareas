@@ -1,10 +1,25 @@
 @Backend_HostAddress = https://localhost:7019
 
+# ===== INICIO DE SESIÓN: ejecutar PRIMERO la prueba 0 (guarda el token para las demás) =====
+# Contraseñas de DESARROLLO de los usuarios de prueba. Cámbialas desde la sección Usuarios.
+
+### 0. Iniciar sesión como Administrador (esperado: 200 OK con "token")
+# @name login
+POST {{Backend_HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "correo": "luis@strategicsoft.com",
+  "contrasena": "Admin2026*"
+}
+
 ### 1. Listar tareas (esperado: 200 OK)
 GET {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 2. Crear tarea válida (esperado: 201 Created con el id)
 POST {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -15,6 +30,7 @@ Content-Type: application/json
 
 ### 3. Crear tarea sin responsable (esperado: 201 Created)
 POST {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -24,6 +40,7 @@ Content-Type: application/json
 
 ### 4. Título con solo espacios (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -33,6 +50,7 @@ Content-Type: application/json
 
 ### 5. Estado que no existe (esperado: 400 Bad Request, "El estado seleccionado no existe.")
 POST {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -42,13 +60,16 @@ Content-Type: application/json
 
 ### 6. Eliminar una tarea que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Tareas/99999
+Authorization: Bearer {{login.response.body.$.token}}
 
 
 ### 7. Listar usuarios (esperado: 200 OK)
 GET {{Backend_HostAddress}}/api/Usuarios
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 8. Correo con formato inválido (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Usuarios
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -59,6 +80,7 @@ Content-Type: application/json
 
 ### 9. Nombre vacío (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Usuarios
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -69,6 +91,7 @@ Content-Type: application/json
 
 ### 10. Rol que no existe (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Usuarios
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -79,6 +102,7 @@ Content-Type: application/json
 
 ### 11. Correo repetido (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Usuarios
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -89,10 +113,12 @@ Content-Type: application/json
 
 ### 12. Eliminar un usuario que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Usuarios/99999
+Authorization: Bearer {{login.response.body.$.token}}
 
 
 ### 13. Estado con nombre vacío (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Estados
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -101,6 +127,7 @@ Content-Type: application/json
 
 ### 14. Estado repetido, con otras mayúsculas (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Estados
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -109,12 +136,15 @@ Content-Type: application/json
 
 ### 15. Eliminar un estado que usan algunas tareas (esperado: 400 Bad Request)
 DELETE {{Backend_HostAddress}}/api/Estados/9
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 16. Eliminar un estado que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Estados/99999
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 17. Rol con nombre vacío (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Roles
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -124,6 +154,7 @@ Content-Type: application/json
 
 ### 18. Rol repetido, con otras mayúsculas (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Roles
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -133,23 +164,29 @@ Content-Type: application/json
 
 ### 19. Eliminar un rol que tienen algunos usuarios (esperado: 400 Bad Request)
 DELETE {{Backend_HostAddress}}/api/Roles/1
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 20. Eliminar un rol que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Roles/99999
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### ===== VERSIÓN 2: CAMPOS NUEVOS DE LA TAREA =====
 
 ### 21. Listar tareas con los campos nuevos (esperado: 200 OK)
 GET {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 22. Detalle de una tarea (esperado: 200 OK)
 GET {{Backend_HostAddress}}/api/Tareas/5
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 23. Detalle de una tarea que no existe (esperado: 404 Not Found)
 GET {{Backend_HostAddress}}/api/Tareas/99999
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 24. Crear tarea completa con fecha límite vencida (esperado: 201 Created)
 POST {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -164,12 +201,15 @@ Content-Type: application/json
 
 ### 25. Filtrar solo las tareas atrasadas (esperado: 200 OK, solo la de la prueba 24)
 GET {{Backend_HostAddress}}/api/Tareas?atrasadas=true
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 26. Filtrar por prioridad (esperado: 200 OK, solo tareas de prioridad Alta)
 GET {{Backend_HostAddress}}/api/Tareas?prioridad=Alta
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 27. Prioridad inválida (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -180,6 +220,7 @@ Content-Type: application/json
 
 ### 28. Fecha límite con formato inválido (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Tareas
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -190,17 +231,21 @@ Content-Type: application/json
 
 ### 29. Listar proyectos (esperado: 200 OK)
 GET {{Backend_HostAddress}}/api/Proyectos
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 30. Listar estados con es_final (esperado: 200 OK; Terminada y Cancelada con es_final true)
 GET {{Backend_HostAddress}}/api/Estados
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### ===== VERSIÓN 3: MAESTRO DE PROYECTOS =====
 
 ### 31. Listar proyectos con conteo de tareas (esperado: 200 OK)
 GET {{Backend_HostAddress}}/api/Proyectos
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 32. Crear proyecto (esperado: 201 Created)
 POST {{Backend_HostAddress}}/api/Proyectos
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -211,6 +256,7 @@ Content-Type: application/json
 
 ### 33. Proyecto con nombre repetido, otras mayúsculas (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Proyectos
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -219,6 +265,7 @@ Content-Type: application/json
 
 ### 34. Proyecto con estado inválido (esperado: 400 Bad Request)
 POST {{Backend_HostAddress}}/api/Proyectos
+Authorization: Bearer {{login.response.body.$.token}}
 Content-Type: application/json
 
 {
@@ -228,6 +275,67 @@ Content-Type: application/json
 
 ### 35. Eliminar un proyecto que tiene tareas (esperado: 400 Bad Request)
 DELETE {{Backend_HostAddress}}/api/Proyectos/1
+Authorization: Bearer {{login.response.body.$.token}}
 
 ### 36. Eliminar un proyecto que no existe (esperado: 404 Not Found)
 DELETE {{Backend_HostAddress}}/api/Proyectos/99999
+Authorization: Bearer {{login.response.body.$.token}}
+
+### ===== VERSIÓN 4: INICIO DE SESIÓN Y PERMISOS =====
+
+### 37. Contraseña incorrecta (esperado: 401 Unauthorized)
+POST {{Backend_HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "correo": "luis@strategicsoft.com",
+  "contrasena": "una-que-no-es"
+}
+
+### 38. Pedir tareas SIN token (esperado: 401 Unauthorized)
+GET {{Backend_HostAddress}}/api/Tareas
+
+### 39. Quién soy, con el token del Administrador (esperado: 200 OK)
+GET {{Backend_HostAddress}}/api/Auth/yo
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 40. Iniciar sesión como Líder de Proyecto (esperado: 200 OK)
+# @name loginLider
+POST {{Backend_HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "correo": "fernandamarin12345g@gmail.com",
+  "contrasena": "Lider2026*"
+}
+
+### 41. El Líder intenta crear un estado (esperado: 403 Forbidden, solo Administrador)
+POST {{Backend_HostAddress}}/api/Estados
+Authorization: Bearer {{loginLider.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "nombre_estado": "Estado del líder"
+}
+
+### 42. El Líder intenta eliminar una tarea (esperado: 403 Forbidden, solo Administrador)
+DELETE {{Backend_HostAddress}}/api/Tareas/8
+Authorization: Bearer {{loginLider.response.body.$.token}}
+
+### 43. El Líder cambia el estado de una tarea (esperado: 200 OK; tarea 8 pasa a "En progreso")
+PATCH {{Backend_HostAddress}}/api/Tareas/8/estado
+Authorization: Bearer {{loginLider.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "id_estado": 14
+}
+
+### 44. Devolver la tarea 8 a "Pendiente" (esperado: 200 OK)
+PATCH {{Backend_HostAddress}}/api/Tareas/8/estado
+Authorization: Bearer {{loginLider.response.body.$.token}}
+Content-Type: application/json
+
+{
+  "id_estado": 9
+}

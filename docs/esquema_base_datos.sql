@@ -1,9 +1,9 @@
 -- =====================================================================
--- ESQUEMA DE BASE DE DATOS (versión 3) - Sistema de Gestión y Seguimiento de Tareas
+-- ESQUEMA DE BASE DE DATOS (versión 4) - Sistema de Gestión y Seguimiento de Tareas
 -- Motor: SQLite
 -- Uso: crea la base completa desde cero, con datos iniciales.
 --      Ejecutar sobre un archivo vacío Backend/gestion_tareas.sqlite
--- Para actualizar una base existente: versión 1 -> migracion_v2_tareas.sql -> migracion_v3_proyectos.sql
+-- Para actualizar una base existente: versión 1 -> migracion_v2_tareas.sql -> migracion_v3_proyectos.sql -> migracion_v4_login_permisos.sql
 -- =====================================================================
 
 PRAGMA foreign_keys = ON;
@@ -14,7 +14,8 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE Roles (
     id_rol INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre_rol VARCHAR(50) NOT NULL,
-    is_admin BOOLEAN DEFAULT 0
+    is_admin BOOLEAN DEFAULT 0,
+    gestiona_tareas INTEGER NOT NULL DEFAULT 0     -- 1 = puede crear y editar tareas
 );
 
 CREATE TABLE Proyectos (
@@ -42,7 +43,8 @@ CREATE TABLE Usuarios (
     id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre VARCHAR(100) NOT NULL,
     correo VARCHAR(100) UNIQUE NOT NULL,
-    id_rol INTEGER REFERENCES Roles(id_rol)
+    id_rol INTEGER REFERENCES Roles(id_rol),
+    contrasena_hash TEXT                           -- hash PBKDF2-SHA256 con sal, nunca la contraseña
 );
 
 -- ---------------------------------------------------------------------
@@ -90,18 +92,19 @@ INSERT INTO Estados (nombre_estado, es_final) VALUES
 ('Terminada', 1),
 ('Cancelada', 1);
 
-INSERT INTO Roles (nombre_rol, is_admin) VALUES
-('Administrador', 1),
-('Líder de Proyecto', 0),
-('Desarrollador', 0);
+INSERT INTO Roles (nombre_rol, is_admin, gestiona_tareas) VALUES
+('Administrador', 1, 1),
+('Líder de Proyecto', 0, 1),
+('Desarrollador', 0, 0);
 
 INSERT INTO Proyectos (nombre, estado, descripcion) VALUES
 ('Sistema de Gestión de Tareas', 'Activo', 'Proyecto transversal de la práctica: web, API, móvil y escritorio.'),
 ('Dashboard Comercial Power BI', 'Planificación', NULL);
 
-INSERT INTO Usuarios (nombre, correo, id_rol) VALUES
-('Luis Abreu Acevedo', 'luis@strategicsoft.com', 1),
-('Fernanda Marin', 'fernandamarin12345g@gmail.com', 2);
+-- Contraseñas iniciales de DESARROLLO (solo su hash). Cambiarlas desde la sección Usuarios.
+INSERT INTO Usuarios (nombre, correo, id_rol, contrasena_hash) VALUES
+('Luis Abreu Acevedo', 'luis@strategicsoft.com', 1, 'pbkdf2-sha256$100000$cBbispryGIq09Lo2inYYwQ==$FtH6FgLIZYqMB6y7isXkjMRgMlmHB2ks/nbb6DBQlMU='),
+('Fernanda Marin', 'fernandamarin12345g@gmail.com', 2, 'pbkdf2-sha256$100000$aXpq8KQxYBr2d0UXrojCIg==$pJGwnOtJQkIDHXhA47AHNmX6nlEbdqyjZoQ/XwsXYsQ=');
 
 INSERT INTO Tareas (titulo, descripcion, id_estado, id_proyecto, id_usuario_responsable, prioridad,
                     fecha_creacion, fecha_limite, fecha_finalizacion, fecha_actualizacion) VALUES

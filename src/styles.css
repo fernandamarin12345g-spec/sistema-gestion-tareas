@@ -248,6 +248,35 @@ textarea { font-family: inherit; resize: vertical; }
 .detalle-datos > div > span:first-child { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; font-weight: 600; }
 .tarjeta-detalle .contenedor-botones-formulario button { width: auto; padding: 10px 20px; }
 
+/* ===== INICIO DE SESIÓN Y PERMISOS ===== */
+.pantalla-login {
+    position: fixed; inset: 0; z-index: 100;
+    background-color: #0f172a;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.tarjeta-login { width: 100%; max-width: 380px; margin: 0; gap: 14px; }
+.tarjeta-login h1 { color: #0ea5e9; text-align: center; letter-spacing: 2px; margin: 0; }
+.tarjeta-login p { text-align: center; margin: 0 0 6px; color: #64748b; }
+.tarjeta-login .error-login { color: #dc2626; font-weight: 600; min-height: 1.2em; margin: 0; }
+.tarjeta-login button:disabled { opacity: 0.7; cursor: wait; }
+
+.usuario-sesion {
+    margin-top: auto; padding-top: 20px; border-top: 1px solid #1e293b;
+    display: flex; flex-direction: column; gap: 4px; color: #e2e8f0;
+}
+.usuario-sesion span { color: #94a3b8; font-size: 0.85rem; }
+.btn-cerrar-sesion { margin-top: 10px; background-color: #1e293b; color: #e2e8f0; padding: 8px; }
+.btn-cerrar-sesion:hover { background-color: #334155; }
+
+/* Elementos que solo ven ciertos roles (la API igual valida cada permiso) */
+body:not(.es-admin) .solo-admin { display: none !important; }
+body:not(.gestiona-tareas) .solo-gestion { display: none !important; }
+
+.cambio-estado { margin-bottom: 20px; display: flex; flex-direction: column; gap: 6px; }
+.cambio-estado label { font-size: 0.85rem; font-weight: 600; color: #475569; }
+.cambio-estado select { max-width: 260px; }
+.cambio-estado button { width: auto; padding: 10px 20px; }
+
 /* ===== MAESTRO DE PROYECTOS ===== */
 .fila-grid-proyectos {
     display: grid;

@@ -1,3 +1,5 @@
+using Backend.Seguridad;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
@@ -75,6 +77,7 @@ namespace Backend.Controllers
 
         // 2. CREAR ESTADO (POST)
         [HttpPost]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult CrearEstado([FromBody] EstadoNuevo nuevoEstado)
         {
             string? error = ValidarNombre(nuevoEstado.nombre_estado);
@@ -117,6 +120,7 @@ namespace Backend.Controllers
 
         // 3. ACTUALIZAR ESTADO (PUT)
         [HttpPut("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult ActualizarEstado(int id, [FromBody] EstadoNuevo estadoActualizado)
         {
             string? error = ValidarNombre(estadoActualizado.nombre_estado);
@@ -162,6 +166,7 @@ namespace Backend.Controllers
 
         // 4. ELIMINAR ESTADO (DELETE)
         [HttpDelete("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult EliminarEstado(int id)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;

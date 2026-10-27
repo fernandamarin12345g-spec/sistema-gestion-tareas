@@ -1,4 +1,6 @@
-﻿using System.Net.Mail;
+using System.Net.Mail;
+using Backend.Seguridad;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
@@ -20,6 +22,7 @@ namespace Backend.Controllers
             public required string nombre { get; set; }
             public required string correo { get; set; }
             public int id_rol { get; set; }
+            public string? contrasena { get; set; }   // Obligatoria al crear; al editar, solo si se quiere cambiar
         }
 
         public class UsuarioResponse
@@ -52,6 +55,9 @@ namespace Backend.Controllers
 
             if (usuario.id_rol <= 0)
                 return "Debes seleccionar un rol válido.";
+
+            if (!string.IsNullOrEmpty(usuario.contrasena) && usuario.contrasena.Length < 8)
+                return "La contraseña debe tener al menos 8 caracteres.";
 
             return null;
         }
@@ -112,9 +118,14 @@ namespace Backend.Controllers
 
         // 2. CREAR USUARIO (POST)
         [HttpPost]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult CrearUsuario([FromBody] UsuarioDto nuevoUsuario)
         {
             string? error = ValidarUsuario(nuevoUsuario);
+            if (error == null && string.IsNullOrEmpty(nuevoUsuario.contrasena))
+            {
+                error = "La contraseña es obligatoria para crear un usuario.";
+            }
             if (error != null)
             {
                 return BadRequest(new { mensaje = error });
@@ -130,12 +141,14 @@ namespace Backend.Controllers
                     conexion.Open();
                     var comando = conexion.CreateCommand();
                     comando.CommandText = @"
-                        INSERT INTO Usuarios (nombre, correo, id_rol)
-                        VALUES (@nombre, @correo, @idRol);
+                        INSERT INTO Usuarios (nombre, correo, id_rol, contrasena_hash)
+                        VALUES (@nombre, @correo, @idRol, @hash);
                         SELECT last_insert_rowid();";
                     comando.Parameters.AddWithValue("@nombre", nuevoUsuario.nombre.Trim());
                     comando.Parameters.AddWithValue("@correo", nuevoUsuario.correo.Trim());
                     comando.Parameters.AddWithValue("@idRol", nuevoUsuario.id_rol);
+                    // Se guarda el hash, nunca la contraseña
+                    comando.Parameters.AddWithValue("@hash", ServicioContrasenas.GenerarHash(nuevoUsuario.contrasena!));
 
                     nuevoId = (long)(comando.ExecuteScalar() ?? 0L);
                 }
@@ -154,6 +167,7 @@ namespace Backend.Controllers
 
         // 3. ACTUALIZAR USUARIO (PUT)
         [HttpPut("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult ActualizarUsuario(int id, [FromBody] UsuarioDto usuarioActualizado)
         {
             string? error = ValidarUsuario(usuarioActualizado);
@@ -187,10 +201,14 @@ namespace Backend.Controllers
                     // Comando 2: actualizar los datos del usuario
                     using (var comandoUpdate = conexion.CreateCommand())
                     {
-                        comandoUpdate.CommandText = "UPDATE Usuarios SET nombre = @nombre, correo = @correo, id_rol = @idRol WHERE id_usuario = @id";
+                        // Si no se envía contraseña, se conserva la que ya tenía (COALESCE)
+                        comandoUpdate.CommandText = "UPDATE Usuarios SET nombre = @nombre, correo = @correo, id_rol = @idRol, contrasena_hash = COALESCE(@hash, contrasena_hash) WHERE id_usuario = @id";
                         comandoUpdate.Parameters.AddWithValue("@nombre", usuarioActualizado.nombre.Trim());
                         comandoUpdate.Parameters.AddWithValue("@correo", usuarioActualizado.correo.Trim());
                         comandoUpdate.Parameters.AddWithValue("@idRol", usuarioActualizado.id_rol);
+                        comandoUpdate.Parameters.AddWithValue("@hash", string.IsNullOrEmpty(usuarioActualizado.contrasena)
+                            ? DBNull.Value
+                            : (object)ServicioContrasenas.GenerarHash(usuarioActualizado.contrasena));
                         comandoUpdate.Parameters.AddWithValue("@id", id);
 
                         int filasAfectadas = comandoUpdate.ExecuteNonQuery();
@@ -210,6 +228,7 @@ namespace Backend.Controllers
 
         // 4. ELIMINAR USUARIO (DELETE)
         [HttpDelete("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult EliminarUsuario(int id)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;

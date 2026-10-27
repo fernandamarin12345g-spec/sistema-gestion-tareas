@@ -1,3 +1,5 @@
+using Backend.Seguridad;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
@@ -144,6 +146,7 @@ namespace Backend.Controllers
 
         // 3. CREAR PROYECTO (POST)
         [HttpPost]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult CrearProyecto([FromBody] ProyectoDto nuevoProyecto)
         {
             string? error = ValidarProyecto(nuevoProyecto);
@@ -179,6 +182,7 @@ namespace Backend.Controllers
 
         // 4. ACTUALIZAR PROYECTO (PUT)
         [HttpPut("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult ActualizarProyecto(int id, [FromBody] ProyectoDto proyectoActualizado)
         {
             string? error = ValidarProyecto(proyectoActualizado);
@@ -216,6 +220,7 @@ namespace Backend.Controllers
 
         // 5. ELIMINAR PROYECTO (DELETE)
         [HttpDelete("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult EliminarProyecto(int id)
         {
             using (var conexion = new SqliteConnection(CadenaConexion))

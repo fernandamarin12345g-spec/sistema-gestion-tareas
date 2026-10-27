@@ -17,7 +17,7 @@ function escaparHTML(texto) {
 // Muestra el mensaje de error que devuelve la API ({ mensaje: "..." }).
 // Si la respuesta no trae un mensaje legible, muestra uno genérico.
 async function mostrarErrorDeRespuesta(respuesta, mensajePorDefecto) {
-    let mensaje = mensajePorDefecto;
+    let mensaje = respuesta.status === 403 ? 'No tienes permiso para realizar esta acción.' : mensajePorDefecto;
     try {
         const datos = await respuesta.json();
         if (datos && datos.mensaje) mensaje = datos.mensaje;
@@ -25,6 +25,119 @@ async function mostrarErrorDeRespuesta(respuesta, mensajePorDefecto) {
         // La respuesta no era JSON: se queda el mensaje por defecto
     }
     alert(mensaje);
+}
+
+// SESIÓN E INICIO DE SESIÓN (JWT)
+// El token que entrega POST /api/Auth/login se guarda en el navegador (localStorage)
+// y se envía en cada petición en el encabezado:  Authorization: Bearer <token>
+const CLAVE_SESION = 'sesion_gestion_tareas';
+let sesion = null; // { token, expira, usuario: { id_usuario, nombre, rol, es_admin, gestiona_tareas } }
+
+function leerSesionGuardada() {
+    try {
+        const guardada = JSON.parse(localStorage.getItem(CLAVE_SESION));
+        // Si el token ya venció, no sirve: hay que volver a iniciar sesión
+        if (guardada && guardada.token && new Date(guardada.expira) > new Date()) return guardada;
+    } catch (e) { /* sin sesión guardada */ }
+    return null;
+}
+
+function guardarSesion(datos) {
+    sesion = datos;
+    try { localStorage.setItem(CLAVE_SESION, JSON.stringify(datos)); } catch (e) { /* el navegador no permite guardar */ }
+}
+
+// Cierra la sesión y vuelve a la pantalla de inicio de sesión
+function cerrarSesion(mensaje) {
+    try {
+        localStorage.removeItem(CLAVE_SESION);
+        if (mensaje) sessionStorage.setItem('mensaje_login', mensaje);
+    } catch (e) { /* nada que borrar */ }
+    window.location.hash = '';
+    window.location.reload();
+}
+
+// Igual que fetch, pero agrega el token. Si la API responde 401 (token vencido o inválido), cierra la sesión.
+async function apiFetch(url, opciones = {}) {
+    const encabezados = { ...(opciones.headers || {}) };
+    if (sesion && sesion.token) encabezados['Authorization'] = `Bearer ${sesion.token}`;
+
+    const respuesta = await fetch(url, { ...opciones, headers: encabezados });
+    if (respuesta.status === 401) {
+        cerrarSesion('Tu sesión expiró. Vuelve a iniciar sesión.');
+        throw new Error('Sesión no válida');
+    }
+    return respuesta;
+}
+
+function esAdmin() { return !!(sesion && sesion.usuario.es_admin); }
+function gestionaTareas() { return !!(sesion && (sesion.usuario.gestiona_tareas || sesion.usuario.es_admin)); }
+
+// Muestra u oculta botones y secciones según el rol (clases CSS .solo-admin y .solo-gestion).
+// Ojo: esto es solo comodidad visual; la seguridad real la aplica la API con las políticas.
+function aplicarPermisosEnPantalla() {
+    document.body.classList.toggle('es-admin', esAdmin());
+    document.body.classList.toggle('gestiona-tareas', gestionaTareas());
+
+    const cajaUsuario = document.getElementById('usuario-sesion');
+    if (cajaUsuario && sesion) {
+        cajaUsuario.innerHTML = `
+            <strong>${escaparHTML(sesion.usuario.nombre)}</strong>
+            <span>${escaparHTML(sesion.usuario.rol)}</span>
+            <button type="button" class="btn-cerrar-sesion" onclick="cerrarSesion()">Cerrar sesión</button>
+        `;
+    }
+}
+
+function mostrarPantallaLogin() {
+    document.getElementById('pantalla-login').classList.remove('oculto');
+    let mensaje = null;
+    try {
+        mensaje = sessionStorage.getItem('mensaje_login');
+        sessionStorage.removeItem('mensaje_login');
+    } catch (e) { /* sin mensaje */ }
+    if (mensaje) document.getElementById('error-login').textContent = mensaje;
+    document.getElementById('correo-login').focus();
+}
+
+const formLogin = document.getElementById('form-login');
+if (formLogin) {
+    formLogin.addEventListener('submit', async function(evento) {
+        evento.preventDefault();
+        const correo = document.getElementById('correo-login').value.trim();
+        const contrasena = document.getElementById('contrasena-login').value;
+        const textoError = document.getElementById('error-login');
+        const boton = document.getElementById('btn-login');
+        textoError.textContent = '';
+        if (correo === '' || contrasena === '') return;
+
+        boton.disabled = true; boton.textContent = 'Ingresando...';
+        try {
+            // El login es la única petición que va SIN token
+            const respuesta = await fetch(`${API_BASE_URL}/Auth/login`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ correo, contrasena })
+            });
+            const datos = await respuesta.json().catch(() => ({}));
+
+            if (!respuesta.ok) {
+                textoError.textContent = datos.mensaje || 'No se pudo iniciar sesión.';
+                return;
+            }
+
+            guardarSesion(datos);
+            document.getElementById('contrasena-login').value = '';
+            document.getElementById('pantalla-login').classList.add('oculto');
+            aplicarPermisosEnPantalla();
+            mostrarSeccion('home');
+            inicializarSistema();
+        } catch (error) {
+            console.error('Error al iniciar sesión:', error);
+            textoError.textContent = 'No se pudo conectar con el servidor.';
+        } finally {
+            boton.disabled = false; boton.textContent = 'Ingresar';
+        }
+    });
 }
 
 
@@ -63,7 +176,7 @@ function clasePrioridad(prioridad) {
 
 async function cargarProyectos() {
     try {
-        const respuesta = await fetch(API_PROYECTOS_URL);
+        const respuesta = await apiFetch(API_PROYECTOS_URL);
         if (!respuesta.ok) throw new Error('Falló servidor en proyectos.');
         miListaDeProyectos = await respuesta.json();
         renderizarProyectos(miListaDeProyectos);
@@ -100,7 +213,7 @@ async function cargarUsuariosYEstadosParaTareas() {
 async function cargarTareas() {
     try {
         contenedorTareas.innerHTML = '<p>Conectando con la base de datos...</p>';
-        const respuesta = await fetch(API_TAREAS_URL);
+        const respuesta = await apiFetch(API_TAREAS_URL);
         if (!respuesta.ok) throw new Error('Falló la respuesta del servidor.');
 
         miListaDeTareas = await respuesta.json();
@@ -165,8 +278,8 @@ function renderizarTareas(tareas) {
             <div><span class="badge-estado">${escaparHTML(tarea.estado)}</span></div>
             <div class="acciones-grid">
                 <button class="btn-ver" onclick="verDetalleTarea(${tarea.id})">Ver</button>
-                <button class="btn-editar" onclick="prepararEdicionTarea(${tarea.id})">Editar</button>
-                <button class="btn-eliminar" onclick="eliminarTarea(${tarea.id})">Eliminar</button>
+                <button class="btn-editar solo-gestion" onclick="prepararEdicionTarea(${tarea.id})">Editar</button>
+                <button class="btn-eliminar solo-admin" onclick="eliminarTarea(${tarea.id})">Eliminar</button>
             </div>
         `;
         contenedorTareas.appendChild(fila);
@@ -195,12 +308,12 @@ if (formCrearTarea) {
         try {
             let respuesta;
             if (idTareaEnEdicion === null) {
-                respuesta = await fetch(API_TAREAS_URL, {
+                respuesta = await apiFetch(API_TAREAS_URL, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(datosTarea)
                 });
             } else {
-                respuesta = await fetch(`${API_TAREAS_URL}/${idTareaEnEdicion}`, {
+                respuesta = await apiFetch(`${API_TAREAS_URL}/${idTareaEnEdicion}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(datosTarea)
                 });
@@ -256,13 +369,19 @@ async function verDetalleTarea(id) {
     mostrarSeccion('tarea-detalle');
 
     try {
-        const respuesta = await fetch(`${API_TAREAS_URL}/${id}`);
+        const respuesta = await apiFetch(`${API_TAREAS_URL}/${id}`);
         if (!respuesta.ok) {
             await mostrarErrorDeRespuesta(respuesta, 'No se pudo cargar la tarea.');
             mostrarSeccion('tareas');
             return;
         }
         const tarea = await respuesta.json();
+
+        // Pueden cambiar el estado: Administrador, Líder, o el responsable de la tarea
+        const puedeCambiarEstado = gestionaTareas() || (sesion && tarea.id_usuario === sesion.usuario.id_usuario);
+        const opcionesEstado = miListaDeEstados
+            .map(e => `<option value="${e.id_estado}" ${e.id_estado === tarea.id_estado ? 'selected' : ''}>${escaparHTML(e.nombre_estado)}</option>`)
+            .join('');
         const avisoAtrasada = tarea.atrasada
             ? '<div class="aviso-atrasada">Esta tarea está atrasada: su fecha límite ya pasó y todavía no está cerrada.</div>'
             : '';
@@ -283,9 +402,18 @@ async function verDetalleTarea(id) {
                 <div><span>Última actualización</span><strong>${formatearFecha(tarea.fecha_actualizacion)}</strong></div>
             </div>
 
+            ${puedeCambiarEstado ? `
+            <div class="cambio-estado">
+                <label for="nuevo-estado-detalle">Cambiar estado</label>
+                <div class="contenedor-botones-formulario">
+                    <select id="nuevo-estado-detalle">${opcionesEstado}</select>
+                    <button onclick="cambiarEstadoTarea(${tarea.id})">Guardar estado</button>
+                </div>
+            </div>` : ''}
+
             <div class="contenedor-botones-formulario">
-                <button class="btn-editar" onclick="prepararEdicionTarea(${tarea.id})">Editar</button>
-                <button class="btn-eliminar" onclick="eliminarTarea(${tarea.id})">Eliminar</button>
+                <button class="btn-editar solo-gestion" onclick="prepararEdicionTarea(${tarea.id})">Editar</button>
+                <button class="btn-eliminar solo-admin" onclick="eliminarTarea(${tarea.id})">Eliminar</button>
             </div>
         `;
     } catch (error) {
@@ -295,10 +423,28 @@ async function verDetalleTarea(id) {
     }
 }
 
+// PATCH /api/Tareas/{id}/estado: cambia solo el estado (lo puede usar un Desarrollador con sus tareas)
+async function cambiarEstadoTarea(id) {
+    const idEstado = parseInt(document.getElementById('nuevo-estado-detalle').value);
+    if (isNaN(idEstado)) return;
+    try {
+        const respuesta = await apiFetch(`${API_TAREAS_URL}/${id}/estado`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id_estado: idEstado })
+        });
+        if (respuesta.ok) {
+            await cargarTareas();
+            verDetalleTarea(id);
+        } else {
+            await mostrarErrorDeRespuesta(respuesta, 'No se pudo cambiar el estado.');
+        }
+    } catch (error) { console.error('Error al cambiar estado:', error); }
+}
+
 async function eliminarTarea(id) {
     if (!confirm('¿Segura que deseas eliminar esta tarea de la base de datos?')) return;
     try {
-        const respuesta = await fetch(`${API_TAREAS_URL}/${id}`, { method: 'DELETE' });
+        const respuesta = await apiFetch(`${API_TAREAS_URL}/${id}`, { method: 'DELETE' });
         if (respuesta.ok) {
             if (window.location.hash === '#tarea-detalle') mostrarSeccion('tareas');
             cargarTareas();
@@ -384,8 +530,8 @@ function renderizarProyectos(proyectos) {
             <div>${proyecto.tareas_abiertas} abierta(s) de ${proyecto.total_tareas}</div>
             <div class="acciones-grid">
                 <button class="btn-ver" onclick="verTareasDeProyecto(${proyecto.id_proyecto})">Ver tareas</button>
-                <button class="btn-editar" onclick="prepararEdicionProyecto(${proyecto.id_proyecto})">Editar</button>
-                <button class="btn-eliminar" onclick="eliminarProyecto(${proyecto.id_proyecto})">Eliminar</button>
+                <button class="btn-editar solo-admin" onclick="prepararEdicionProyecto(${proyecto.id_proyecto})">Editar</button>
+                <button class="btn-eliminar solo-admin" onclick="eliminarProyecto(${proyecto.id_proyecto})">Eliminar</button>
             </div>
         `;
         contenedorProyectos.appendChild(fila);
@@ -407,9 +553,9 @@ if (formCrearProyecto) {
         try {
             let respuesta;
             if (idProyectoEnEdicion === null) {
-                respuesta = await fetch(API_PROYECTOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosProyecto) });
+                respuesta = await apiFetch(API_PROYECTOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosProyecto) });
             } else {
-                respuesta = await fetch(`${API_PROYECTOS_URL}/${idProyectoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosProyecto) });
+                respuesta = await apiFetch(`${API_PROYECTOS_URL}/${idProyectoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosProyecto) });
             }
 
             // Se recarga todo porque los proyectos aparecen también en el formulario, los filtros y el dashboard
@@ -445,7 +591,7 @@ function cancelarEdicionProyecto() {
 async function eliminarProyecto(id) {
     if (!confirm('¿Segura que deseas eliminar este proyecto?')) return;
     try {
-        const respuesta = await fetch(`${API_PROYECTOS_URL}/${id}`, { method: 'DELETE' });
+        const respuesta = await apiFetch(`${API_PROYECTOS_URL}/${id}`, { method: 'DELETE' });
         if (respuesta.ok) { inicializarSistema(); }
         else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el proyecto.'); }
     } catch (error) {
@@ -473,7 +619,7 @@ let idEstadoEnEdicion = null;
 
 async function cargarEstados() {
     try {
-        const respuesta = await fetch(API_ESTADOS_URL);
+        const respuesta = await apiFetch(API_ESTADOS_URL);
         if (!respuesta.ok) throw new Error('Falló la respuesta del servidor al cargar estados.');
         miListaDeEstados = await respuesta.json();
         renderizarEstados(miListaDeEstados);
@@ -502,8 +648,8 @@ function renderizarEstados(estados) {
             <div><strong>#${estado.id_estado}</strong></div>
             <div>${escaparHTML(estado.nombre_estado)} ${estado.es_final ? '<span class="etiqueta-final">Cierra la tarea</span>' : ''}</div>
             <div class="acciones-grid">
-                <button class="btn-editar" onclick="prepararEdicionEstado(${estado.id_estado})">Editar</button>
-                <button class="btn-eliminar" onclick="eliminarEstado(${estado.id_estado})">Eliminar</button>
+                <button class="btn-editar solo-admin" onclick="prepararEdicionEstado(${estado.id_estado})">Editar</button>
+                <button class="btn-eliminar solo-admin" onclick="eliminarEstado(${estado.id_estado})">Eliminar</button>
             </div>
         `;
         contenedorEstados.appendChild(fila);
@@ -519,9 +665,9 @@ if (formCrearEstado) {
         try {
             let respuesta;
             if (idEstadoEnEdicion === null) {
-                respuesta = await fetch(API_ESTADOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto, es_final: checkboxEsFinal.checked }) });
+                respuesta = await apiFetch(API_ESTADOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto, es_final: checkboxEsFinal.checked }) });
             } else {
-                respuesta = await fetch(`${API_ESTADOS_URL}/${idEstadoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto, es_final: checkboxEsFinal.checked }) });
+                respuesta = await apiFetch(`${API_ESTADOS_URL}/${idEstadoEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_estado: nombreTexto, es_final: checkboxEsFinal.checked }) });
             }
 
             if (respuesta.ok) { cancelarEdicionEstado(); inicializarSistema(); }
@@ -552,7 +698,7 @@ function cancelarEdicionEstado() {
 async function eliminarEstado(id) {
     if (!confirm('¿Segura que deseas eliminar este estado?')) return;
     try {
-        const respuesta = await fetch(`${API_ESTADOS_URL}/${id}`, { method: 'DELETE' });
+        const respuesta = await apiFetch(`${API_ESTADOS_URL}/${id}`, { method: 'DELETE' });
         if (respuesta.ok) { inicializarSistema(); }
         else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el estado.'); }
     } catch (error) {
@@ -568,12 +714,13 @@ const contenedorRoles = document.getElementById('contenedor-roles');
 const formCrearRol = document.getElementById('form-crear-rol');
 const inputNombreRol = document.getElementById('nombre-rol');
 const checkboxEsAdmin = document.getElementById('es-admin');
+const checkboxGestionaTareas = document.getElementById('gestiona-tareas-rol');
 let miListaDeRoles = [];
 let idRolEnEdicion = null;
 
 async function cargarRoles() {
     try {
-        const respuesta = await fetch(API_ROLES_URL);
+        const respuesta = await apiFetch(API_ROLES_URL);
         if (!respuesta.ok) throw new Error('Falló servidor en roles.');
         miListaDeRoles = await respuesta.json();
         renderizarRoles(miListaDeRoles);
@@ -598,14 +745,15 @@ function renderizarRoles(roles) {
     roles.forEach(rol => {
         const fila = document.createElement('div');
         fila.className = 'fila-grid-basica';
-        const etiquetaAdmin = rol.is_admin ? '<span class="etiqueta-admin">Administrador</span>' : '';
+        const etiquetaAdmin = (rol.is_admin ? '<span class="etiqueta-admin">Administrador</span>' : '')
+            + (rol.gestiona_tareas ? '<span class="etiqueta-final">Gestiona tareas</span>' : '');
 
         fila.innerHTML = `
             <div><strong>#${rol.id_rol}</strong></div>
             <div>${escaparHTML(rol.nombre_rol)} ${etiquetaAdmin}</div>
             <div class="acciones-grid">
-                <button class="btn-editar" onclick="prepararEdicionRol(${rol.id_rol})">Editar</button>
-                <button class="btn-eliminar" onclick="eliminarRol(${rol.id_rol})">Eliminar</button>
+                <button class="btn-editar solo-admin" onclick="prepararEdicionRol(${rol.id_rol})">Editar</button>
+                <button class="btn-eliminar solo-admin" onclick="eliminarRol(${rol.id_rol})">Eliminar</button>
             </div>
         `;
         contenedorRoles.appendChild(fila);
@@ -622,9 +770,9 @@ if(formCrearRol) {
         try {
             let respuesta;
             if (idRolEnEdicion === null) {
-                respuesta = await fetch(API_ROLES_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_rol: nombreTexto, is_admin: esAdmin }) });
+                respuesta = await apiFetch(API_ROLES_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_rol: nombreTexto, is_admin: esAdmin, gestiona_tareas: checkboxGestionaTareas.checked }) });
             } else {
-                respuesta = await fetch(`${API_ROLES_URL}/${idRolEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_rol: nombreTexto, is_admin: esAdmin }) });
+                respuesta = await apiFetch(`${API_ROLES_URL}/${idRolEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre_rol: nombreTexto, is_admin: esAdmin, gestiona_tareas: checkboxGestionaTareas.checked }) });
             }
 
             if (respuesta.ok) { cancelarEdicionRol(); inicializarSistema(); if (typeof cargarRolesParaSelect === 'function') cargarRolesParaSelect(); }
@@ -641,13 +789,13 @@ function prepararEdicionRol(id) {
     if (!rol) return;
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    idRolEnEdicion = id; inputNombreRol.value = rol.nombre_rol; checkboxEsAdmin.checked = rol.is_admin;
+    idRolEnEdicion = id; inputNombreRol.value = rol.nombre_rol; checkboxEsAdmin.checked = rol.is_admin; checkboxGestionaTareas.checked = !!rol.gestiona_tareas;
     document.getElementById('btn-submit-rol').textContent = 'Actualizar Rol';
     document.getElementById('btn-cancelar-rol').classList.add('visible');
 }
 
 function cancelarEdicionRol() {
-    idRolEnEdicion = null; inputNombreRol.value = ''; checkboxEsAdmin.checked = false;
+    idRolEnEdicion = null; inputNombreRol.value = ''; checkboxEsAdmin.checked = false; checkboxGestionaTareas.checked = false;
     document.getElementById('btn-submit-rol').textContent = 'Agregar Rol';
     document.getElementById('btn-cancelar-rol').classList.remove('visible');
 }
@@ -655,7 +803,7 @@ function cancelarEdicionRol() {
 async function eliminarRol(id) {
     if (!confirm('¿Segura que deseas eliminar este rol?')) return;
     try {
-        const respuesta = await fetch(`${API_ROLES_URL}/${id}`, { method: 'DELETE' });
+        const respuesta = await apiFetch(`${API_ROLES_URL}/${id}`, { method: 'DELETE' });
         if (respuesta.ok) { inicializarSistema(); if (typeof cargarRolesParaSelect === 'function') cargarRolesParaSelect(); }
         else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el rol.'); }
     } catch (error) {
@@ -677,7 +825,7 @@ let idUsuarioEnEdicion = null;
 async function cargarRolesParaSelect() {
     if (!selectRolUsuario) return;
     try {
-        const respuesta = await fetch(API_ROLES_URL);
+        const respuesta = await apiFetch(API_ROLES_URL);
         if (respuesta.ok) {
             const roles = await respuesta.json();
             selectRolUsuario.innerHTML = '<option value="">Selecciona un rol para este usuario...</option>';
@@ -688,7 +836,7 @@ async function cargarRolesParaSelect() {
 
 async function cargarUsuarios() {
     try {
-        const respuesta = await fetch(API_USUARIOS_URL);
+        const respuesta = await apiFetch(API_USUARIOS_URL);
         if (!respuesta.ok) throw new Error('Falló servidor.');
         miListaDeUsuarios = await respuesta.json();
         renderizarCarpetasRoles();
@@ -772,8 +920,8 @@ function renderizarUsuarios(usuarios) {
             </div>
             <div>${htmlTareas}</div>
             <div class="acciones-grid">
-                <button class="btn-editar" onclick="prepararEdicionUsuario(${usuario.id_usuario})">Editar</button>
-                <button class="btn-eliminar" onclick="eliminarUsuario(${usuario.id_usuario})">Eliminar</button>
+                <button class="btn-editar solo-admin" onclick="prepararEdicionUsuario(${usuario.id_usuario})">Editar</button>
+                <button class="btn-eliminar solo-admin" onclick="eliminarUsuario(${usuario.id_usuario})">Eliminar</button>
             </div>
         `;
         contenedorUsuarios.appendChild(fila);
@@ -786,15 +934,22 @@ if (formCrearUsuario) {
         const nombreTexto = document.getElementById('nombre-usuario').value.trim();
         const correoTexto = document.getElementById('correo-usuario').value.trim();
         const idRolSeleccionado = parseInt(selectRolUsuario.value);
+        const contrasenaTexto = document.getElementById('contrasena-usuario').value;
 
         if (nombreTexto === '' || correoTexto === '' || isNaN(idRolSeleccionado)) return;
+        // Al crear, la contraseña es obligatoria; al editar, solo se envía si se quiere cambiar
+        if (idUsuarioEnEdicion === null && contrasenaTexto.length < 8) {
+            alert('La contraseña debe tener al menos 8 caracteres.');
+            return;
+        }
+        const datosUsuario = { nombre: nombreTexto, correo: correoTexto, id_rol: idRolSeleccionado, contrasena: contrasenaTexto || null };
 
         try {
             let respuesta;
             if (idUsuarioEnEdicion === null) {
-                respuesta = await fetch(API_USUARIOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: nombreTexto, correo: correoTexto, id_rol: idRolSeleccionado }) });
+                respuesta = await apiFetch(API_USUARIOS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosUsuario) });
             } else {
-                respuesta = await fetch(`${API_USUARIOS_URL}/${idUsuarioEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: nombreTexto, correo: correoTexto, id_rol: idRolSeleccionado }) });
+                respuesta = await apiFetch(`${API_USUARIOS_URL}/${idUsuarioEnEdicion}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datosUsuario) });
             }
 
             if (respuesta.ok) { cancelarEdicionUsuario(); cargarUsuarios(); }
@@ -813,6 +968,8 @@ function prepararEdicionUsuario(id) {
     mostrarSeccion('usuarios'); window.scrollTo({ top: 0, behavior: 'smooth' });
     idUsuarioEnEdicion = id; document.getElementById('nombre-usuario').value = usuario.nombre;
     document.getElementById('correo-usuario').value = usuario.correo; selectRolUsuario.value = usuario.id_rol ?? '';
+    document.getElementById('contrasena-usuario').value = '';
+    document.getElementById('contrasena-usuario').placeholder = 'Nueva contraseña (déjala vacía para no cambiarla)...';
     document.getElementById('btn-submit-usuario').textContent = 'Actualizar Usuario';
     document.getElementById('btn-cancelar-usuario').classList.add('visible');
 }
@@ -820,6 +977,8 @@ function prepararEdicionUsuario(id) {
 function cancelarEdicionUsuario() {
     idUsuarioEnEdicion = null; document.getElementById('nombre-usuario').value = '';
     document.getElementById('correo-usuario').value = ''; selectRolUsuario.value = '';
+    document.getElementById('contrasena-usuario').value = '';
+    document.getElementById('contrasena-usuario').placeholder = 'Contraseña (mínimo 8 caracteres)...';
     document.getElementById('btn-submit-usuario').textContent = 'Agregar Usuario';
     document.getElementById('btn-cancelar-usuario').classList.remove('visible');
 }
@@ -827,7 +986,7 @@ function cancelarEdicionUsuario() {
 async function eliminarUsuario(id) {
     if (!confirm('¿Segura que deseas eliminar este usuario?')) return;
     try {
-        const respuesta = await fetch(`${API_USUARIOS_URL}/${id}`, { method: 'DELETE' });
+        const respuesta = await apiFetch(`${API_USUARIOS_URL}/${id}`, { method: 'DELETE' });
         if (respuesta.ok) { mostrarSeccion('usuarios'); cargarUsuarios(); cargarTareas(); }
         else { await mostrarErrorDeRespuesta(respuesta, 'No se pudo eliminar el usuario.'); }
     } catch (error) {
@@ -923,7 +1082,11 @@ function renderizarDashboard() {
 
 
 // CONTROLADOR DE NAVEGACIÓN SPA
+const SECCIONES_SOLO_ADMIN = ['estados', 'roles', 'usuarios', 'usuarios-detalle'];
+
 function mostrarSeccion(idSeccion) {
+    // Las secciones de administración solo se abren para administradores
+    if (SECCIONES_SOLO_ADMIN.includes(idSeccion) && !esAdmin()) idSeccion = 'home';
     window.location.hash = idSeccion;
     document.querySelectorAll('.seccion-vista').forEach(seccion => seccion.classList.remove('activa'));
 
@@ -962,4 +1125,14 @@ async function inicializarSistema() {
     await cargarUsuariosYEstadosParaTareas();
     cargarTareas();
 }
-inicializarSistema();
+// ARRANQUE: si hay una sesión válida guardada se entra directo; si no, se pide iniciar sesión
+function iniciarAplicacion() {
+    sesion = leerSesionGuardada();
+    if (!sesion) {
+        mostrarPantallaLogin();
+        return;
+    }
+    aplicarPermisosEnPantalla();
+    inicializarSistema();
+}
+iniciarAplicacion();

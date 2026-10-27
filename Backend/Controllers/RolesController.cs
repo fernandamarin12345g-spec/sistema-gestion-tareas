@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Backend.Seguridad;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 
 namespace Backend.Controllers
@@ -18,6 +20,7 @@ namespace Backend.Controllers
         {
             public required string nombre_rol { get; set; }
             public bool is_admin { get; set; }
+            public bool? gestiona_tareas { get; set; }   // true = puede crear y editar tareas (ej. Líder de Proyecto)
         }
 
         // Valida el nombre antes de tocar la base de datos. Devuelve el mensaje de error o null.
@@ -56,7 +59,7 @@ namespace Backend.Controllers
             {
                 conexion.Open();
                 var comando = conexion.CreateCommand();
-                comando.CommandText = "SELECT id_rol, nombre_rol, is_admin FROM Roles";
+                comando.CommandText = "SELECT id_rol, nombre_rol, is_admin, gestiona_tareas FROM Roles";
 
                 using (var lector = comando.ExecuteReader())
                 {
@@ -66,7 +69,8 @@ namespace Backend.Controllers
                         {
                             id_rol = lector.GetInt32(0),
                             nombre_rol = lector.GetString(1),
-                            is_admin = lector.GetBoolean(2)
+                            is_admin = lector.GetBoolean(2),
+                            gestiona_tareas = lector.GetBoolean(3)
                         });
                     }
                 }
@@ -76,6 +80,7 @@ namespace Backend.Controllers
 
         // 2. CREAR ROL (POST)
         [HttpPost]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult CrearRol([FromBody] RolNuevo nuevoRol)
         {
             string? error = ValidarNombre(nuevoRol.nombre_rol);
@@ -99,10 +104,11 @@ namespace Backend.Controllers
 
                 var comando = conexion.CreateCommand();
                 comando.CommandText = @"
-                    INSERT INTO Roles (nombre_rol, is_admin) VALUES (@nombre, @isAdmin);
+                    INSERT INTO Roles (nombre_rol, is_admin, gestiona_tareas) VALUES (@nombre, @isAdmin, @gestionaTareas);
                     SELECT last_insert_rowid();";
                 comando.Parameters.AddWithValue("@nombre", nombre);
                 comando.Parameters.AddWithValue("@isAdmin", nuevoRol.is_admin ? 1 : 0);
+                comando.Parameters.AddWithValue("@gestionaTareas", nuevoRol.gestiona_tareas == true ? 1 : 0);
                 nuevoId = (long)(comando.ExecuteScalar() ?? 0L);
             }
 
@@ -111,6 +117,7 @@ namespace Backend.Controllers
 
         // 3. ACTUALIZAR ROL (PUT)
         [HttpPut("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult ActualizarRol(int id, [FromBody] RolNuevo rolActualizado)
         {
             string? error = ValidarNombre(rolActualizado.nombre_rol);
@@ -132,9 +139,11 @@ namespace Backend.Controllers
                 }
 
                 var comando = conexion.CreateCommand();
-                comando.CommandText = "UPDATE Roles SET nombre_rol = @nombre, is_admin = @isAdmin WHERE id_rol = @id";
+                // Si no se envía gestiona_tareas, se conserva el valor que ya tenía (COALESCE)
+                comando.CommandText = "UPDATE Roles SET nombre_rol = @nombre, is_admin = @isAdmin, gestiona_tareas = COALESCE(@gestionaTareas, gestiona_tareas) WHERE id_rol = @id";
                 comando.Parameters.AddWithValue("@nombre", nombre);
                 comando.Parameters.AddWithValue("@isAdmin", rolActualizado.is_admin ? 1 : 0);
+                comando.Parameters.AddWithValue("@gestionaTareas", rolActualizado.gestiona_tareas.HasValue ? (object)(rolActualizado.gestiona_tareas.Value ? 1 : 0) : DBNull.Value);
                 comando.Parameters.AddWithValue("@id", id);
 
                 int filasAfectadas = comando.ExecuteNonQuery();
@@ -148,6 +157,7 @@ namespace Backend.Controllers
 
         // 4. ELIMINAR ROL (DELETE)
         [HttpDelete("{id}")]
+        [Authorize(Policy = Politicas.Administrador)]
         public IActionResult EliminarRol(int id)
         {
             string cadenaConexion = _configuracion.GetConnectionString("DefaultConnection") ?? string.Empty;
