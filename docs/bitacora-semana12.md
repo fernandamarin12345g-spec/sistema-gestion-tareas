@@ -29,13 +29,29 @@ Esta semana también se protegió la API y los tres clientes:
 - **Cada cliente respeta los permisos:** los botones que el rol no puede usar no se muestran. Pero la regla real está en la API: aunque alguien llamara a la API directamente, el backend rechaza la acción.
 - **Sesión:** la web la guarda en el navegador y el móvil en el teléfono (`shared_preferences`), así no hay que iniciar sesión cada vez. El escritorio la mantiene en memoria mientras la ventana está abierta. En los tres, si el token vence se vuelve al inicio de sesión, y al cerrar sesión el móvil borra también la copia local de tareas.
 
+## Un solo diseño para web, escritorio y móvil
+
+Al final de la semana se unificó el diseño de las tres aplicaciones para que se note que son parte del mismo sistema:
+
+- **Mismos colores en todas:** se tomaron los códigos de `styles.css` (azul oscuro `#0f172a` para la barra lateral y el encabezado, azul `#0ea5e9` para los botones, gris claro `#f1f5f9` de fondo, tarjetas blancas con borde `#e2e8f0`) y se usaron igual en el escritorio (`Estilo.cs`) y en el móvil (`config/tema.dart`).
+- **Mismos elementos:** píldoras de estado y prioridad con los mismos colores, aviso rojo para las tareas atrasadas, botones redondeados y el logo "ESA SAS".
+- **Adaptado a cada pantalla:** en la web y el escritorio el menú es una barra lateral fija y las tareas se ven en un data grid; en el celular el menú se abre desde el ícono ☰, los indicadores van en una fila de cuatro tarjetas pequeñas, los filtros por estado se deslizan de lado y cada tarea es una tarjeta que se toca para ver el detalle.
+
+| Pantalla del móvil | Captura |
+| --- | --- |
+| Inicio de sesión | ![Login](evidencia-movil-diseno-login.png) |
+| Lista: indicadores, filtros por estado y tarjetas (la #23 atrasada en rojo) | ![Lista](evidencia-movil-diseno-lista.png) |
+| Menú lateral con el usuario y "Cerrar sesión" | ![Menú](evidencia-movil-diseno-menu.png) |
+| Detalle de una tarea atrasada | ![Detalle](evidencia-movil-diseno-detalle.png) |
+| Formulario de nueva tarea | ![Formulario](evidencia-movil-diseno-formulario.png) |
+
 ## Comparación entre plataformas
 
 | Aspecto | Web (dashboard) | Móvil (Flutter) | Escritorio (Windows Forms) |
 | --- | --- | --- | --- |
 | **Dónde se ejecuta** | En el navegador, en cualquier computador | En el teléfono Android (o el emulador) | Instalada en Windows |
 | **Lenguaje** | HTML, CSS y JavaScript | Dart | C# (.NET 10) |
-| **Interfaz** | Etiquetas HTML con estilos CSS | Widgets (`Scaffold`, `ListView`, `Card`) | Ventanas (`Form`) y controles propios dibujados con GDI+, con los mismos colores de la web |
+| **Interfaz** | Etiquetas HTML con estilos CSS | Widgets (`Scaffold`, `Drawer`, `ListView`, `Card`) con un tema propio de colores | Ventanas (`Form`) y controles propios dibujados con GDI+, con los mismos colores de la web |
 | **Cómo llama a la API** | `fetch` | Paquete `http` | `HttpClient` |
 | **Dónde guarda la sesión** | `localStorage` del navegador | `shared_preferences` del teléfono | En memoria, mientras la app está abierta |
 | **Sin conexión** | Muestra el error | Muestra la última lista guardada | Muestra el error |
