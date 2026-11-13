@@ -1,0 +1,3 @@
+Aquí va la base de datos que usa el contenedor de la API: gestion_tareas.sqlite
+Cópiala desde Backend\gestion_tareas.sqlite antes de levantar Docker por primera vez.
+Esta carpeta está en el .gitignore: la base de datos no se sube a Git.

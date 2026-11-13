@@ -89,7 +89,12 @@ public class FormPrincipal : Form
         // Menú: cada enlace abre su sección
         foreach ((Seccion seccion, ItemMenu item) in _lateral.Items)
         {
-            item.Click += (_, _) => MostrarSeccion(seccion);
+            item.Click += async (_, _) =>
+            {
+                MostrarSeccion(seccion);
+                // Al cambiar de sección se vuelven a pedir los datos, por si se cambiaron desde la web o el móvil
+                await EjecutarAsync(RecargarTodoAsync);
+            };
         }
         _lateral.CerrarSesion.Click += (_, _) =>
         {

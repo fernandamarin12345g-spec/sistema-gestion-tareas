@@ -15,3 +15,7 @@ escritorio/.vs/
 # Windows
 desktop.ini
 Thumbs.db
+
+# Docker: variables secretas y datos del contenedor
+.env
+datos/*.sqlite

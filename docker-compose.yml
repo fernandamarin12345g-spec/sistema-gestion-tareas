@@ -1,0 +1,39 @@
+# =====================================================================
+# Sistema de Gestión de Tareas con Docker
+#   docker compose up -d --build   -> construye y levanta todo
+#   docker compose ps              -> ver los contenedores
+#   docker compose logs -f api     -> ver los registros (logs) de la API
+#   docker compose down            -> detener y quitar los contenedores
+# =====================================================================
+
+services:
+  # API ASP.NET Core
+  api:
+    build: ./Backend
+    container_name: gestion-tareas-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # La base de datos está en el volumen ./datos (fuera del contenedor)
+      - ConnectionStrings__DefaultConnection=Data Source=/app/datos/gestion_tareas.sqlite
+      # La clave para firmar los tokens JWT viene del archivo .env (no se sube a Git)
+      - Jwt__Clave=${JWT_CLAVE}
+    volumes:
+      - ./datos:/app/datos
+    ports:
+      # Puerto del computador : puerto del contenedor
+      # (5293 es el mismo que ya usan la app móvil y la de escritorio)
+      - "5293:8080"
+    restart: unless-stopped
+
+  # Dashboard web con Nginx
+  web:
+    image: nginx:1.27-alpine
+    container_name: gestion-tareas-web
+    volumes:
+      - ./src:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    restart: unless-stopped

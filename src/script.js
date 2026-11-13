@@ -1,7 +1,8 @@
 
 // CONFIGURACIÓN GENERAL
 // La dirección del backend se escribe una sola vez. Si cambia (por ejemplo en Docker), solo se cambia aquí.
-const API_BASE_URL = 'https://localhost:7019/api';
+// Con Live Server (puerto 5500) se usa la API de Visual Studio; en Docker o en el servidor, Nginx atiende /api
+const API_BASE_URL = window.location.port === '5500' ? 'https://localhost:7019/api' : '/api';
 
 // Convierte los caracteres especiales (< > & " ') en texto seguro antes de meterlos en innerHTML.
 // Así, un título como  L'Oréal  o  <b>hola</b>  se muestra tal cual y no rompe la página (evita XSS).

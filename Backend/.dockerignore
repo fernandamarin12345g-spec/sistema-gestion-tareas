@@ -1,0 +1,10 @@
+# Archivos que NO se copian a la imagen
+bin/
+obj/
+.vs/
+*.user
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+appsettings.Development.json
+Backend.http
