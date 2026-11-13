@@ -143,6 +143,31 @@ button:hover { background-color: #0284c7; }
     align-items: center; padding: 12px 20px; border-bottom: 1px solid #f1f5f9;
 }
 
+/* Auditoría: Fecha | Usuario | Acción | Módulo | Detalle */
+.fila-grid-auditoria {
+    display: grid;
+    grid-template-columns: 150px 170px 150px 130px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 0.95rem;
+}
+
+.accion-auditoria {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    background: #e0f2fe;
+    color: #0369a1;
+}
+.accion-auditoria.crear { background: #dcfce7; color: #166534; }
+.accion-auditoria.editar { background: #fef9c3; color: #854d0e; }
+.accion-auditoria.eliminar, .accion-auditoria.fallido { background: #fee2e2; color: #b91c1c; }
+.accion-auditoria.sesion { background: #f1f5f9; color: #475569; }
+
 .fila-grid-basica {
     display: grid;
     grid-template-columns: 180px 2fr 200px; 
@@ -339,8 +364,8 @@ body:not(.gestiona-tareas) .solo-gestion { display: none !important; }
     nav ul { flex-direction: row; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
     main { padding: 1.5rem; }
     .encabezado-grid { display: none; } /* Ocultamos encabezados en móvil */
-    .fila-grid-tareas, .fila-grid-basica, .fila-grid-usuarios, .fila-grid-proyectos {
+    .fila-grid-tareas, .fila-grid-basica, .fila-grid-usuarios, .fila-grid-proyectos, .fila-grid-auditoria {
         display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
     }
     .fila-formulario, .fila-formulario-3, .detalle-datos { grid-template-columns: 1fr; }
-}
+}

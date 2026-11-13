@@ -29,6 +29,7 @@
                 <li class="solo-admin"><a href="#estados" onclick="mostrarSeccion('estados')">Estados</a></li>
                 <li class="solo-admin"><a href="#roles" onclick="mostrarSeccion('roles')">Roles</a></li>
                 <li class="solo-admin"><a href="#usuarios" onclick="mostrarSeccion('usuarios')">Usuarios</a></li>
+                <li class="solo-admin"><a href="#auditoria" onclick="mostrarSeccion('auditoria')">Auditoría</a></li>
             </ul>
         </nav>
 
@@ -288,6 +289,29 @@
 
             <div id="contenedor-usuarios">
                 <p>Cargando usuarios...</p>
+            </div>
+        </section>
+
+        <!-- Sección de Auditoría (solo Administrador): quién hizo qué y cuándo -->
+        <section id="auditoria" class="seccion-vista">
+            <h2>Auditoría</h2>
+            <p>Registro automático de los cambios hechos en el sistema: quién los hizo, sobre qué registro y cuándo. Solo lo puede consultar el Administrador.</p>
+
+            <div class="barra-filtros">
+                <select id="filtro-modulo-auditoria" class="select-formulario" onchange="cargarAuditoria()">
+                    <option value="">Todos los módulos</option>
+                    <option value="Tareas">Tareas</option>
+                    <option value="Proyectos">Proyectos</option>
+                    <option value="Estados">Estados</option>
+                    <option value="Roles">Roles</option>
+                    <option value="Usuarios">Usuarios</option>
+                    <option value="Auth">Inicios de sesión</option>
+                </select>
+                <button type="button" class="btn-secundario" onclick="cargarAuditoria()">Actualizar</button>
+            </div>
+
+            <div id="contenedor-auditoria">
+                <p>Cargando registros...</p>
             </div>
         </section>
     </main>

@@ -1,9 +1,9 @@
 -- =====================================================================
--- ESQUEMA DE BASE DE DATOS (versión 4) - Sistema de Gestión y Seguimiento de Tareas
+-- ESQUEMA DE BASE DE DATOS (versión 5) - Sistema de Gestión y Seguimiento de Tareas
 -- Motor: SQLite
 -- Uso: crea la base completa desde cero, con datos iniciales.
 --      Ejecutar sobre un archivo vacío Backend/gestion_tareas.sqlite
--- Para actualizar una base existente: versión 1 -> migracion_v2_tareas.sql -> migracion_v3_proyectos.sql -> migracion_v4_login_permisos.sql
+-- Para actualizar una base existente: versión 1 -> migracion_v2_tareas.sql -> migracion_v3_proyectos.sql -> migracion_v4_login_permisos.sql -> migracion_v5_auditoria.sql
 -- =====================================================================
 
 PRAGMA foreign_keys = ON;
@@ -66,7 +66,7 @@ CREATE TABLE Tareas (
 );
 
 -- ---------------------------------------------------------------------
--- TABLAS DE RELACIÓN Y AUDITORÍA (reservadas para versiones futuras)
+-- ETIQUETAS (reservadas para una versión futura) Y AUDITORÍA (en uso desde la versión 5)
 -- ---------------------------------------------------------------------
 CREATE TABLE Tarea_Etiqueta (
     id_tarea INTEGER REFERENCES Tareas(id_tarea) ON DELETE CASCADE,
@@ -76,9 +76,12 @@ CREATE TABLE Tarea_Etiqueta (
 
 CREATE TABLE Auditoria_Log (
     id_log INTEGER PRIMARY KEY AUTOINCREMENT,
-    accion VARCHAR(50) NOT NULL,
+    accion VARCHAR(50) NOT NULL,                 -- Crear, Editar, Cambiar estado, Eliminar, Inicio de sesión...
     fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
-    id_usuario INTEGER REFERENCES Usuarios(id_usuario) ON DELETE SET NULL
+    id_usuario INTEGER REFERENCES Usuarios(id_usuario) ON DELETE SET NULL,
+    modulo VARCHAR(50),                          -- Tareas, Proyectos, Estados, Roles, Usuarios o Auth
+    id_registro INTEGER,                         -- registro afectado
+    detalle TEXT                                 -- título o nombre del registro y el cambio
 );
 
 -- ---------------------------------------------------------------------

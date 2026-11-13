@@ -1082,8 +1082,71 @@ function renderizarDashboard() {
 }
 
 
+// MÓDULO: AUDITORÍA (solo Administrador)
+const API_AUDITORIA_URL = `${API_BASE_URL}/Auditoria`;
+const NOMBRES_MODULO_AUDITORIA = { Auth: 'Sesión' };
+
+// Clase de color de la etiqueta según la acción (verde crear, amarillo editar, rojo eliminar...)
+function claseAccionAuditoria(accion) {
+    if (accion === 'Crear') return 'crear';
+    if (accion === 'Editar' || accion === 'Cambiar estado') return 'editar';
+    if (accion === 'Eliminar') return 'eliminar';
+    if (accion === 'Inicio de sesión fallido') return 'fallido';
+    if (accion === 'Inicio de sesión') return 'sesion';
+    return '';
+}
+
+async function cargarAuditoria() {
+    const contenedor = document.getElementById('contenedor-auditoria');
+    if (!contenedor || !esAdmin()) return;
+
+    const modulo = document.getElementById('filtro-modulo-auditoria').value;
+    const url = modulo ? `${API_AUDITORIA_URL}?limite=300&modulo=${encodeURIComponent(modulo)}` : `${API_AUDITORIA_URL}?limite=300`;
+
+    try {
+        const respuesta = await apiFetch(url);
+        if (!respuesta.ok) throw new Error('El servidor no devolvió la auditoría.');
+        renderizarAuditoria(await respuesta.json());
+    } catch (error) {
+        console.error('Error:', error);
+        contenedor.innerHTML = '<div style="padding: 20px;">No se pudo cargar el registro de auditoría.</div>';
+    }
+}
+
+function renderizarAuditoria(registros) {
+    const contenedor = document.getElementById('contenedor-auditoria');
+    contenedor.innerHTML = '';
+    contenedor.className = 'contenedor-datos-grid';
+
+    if (registros.length === 0) {
+        contenedor.innerHTML = '<div style="padding: 20px;">Todavía no hay registros de auditoría.</div>';
+        return;
+    }
+
+    const header = document.createElement('div');
+    header.className = 'fila-grid-auditoria encabezado-grid';
+    header.innerHTML = '<div>Fecha y hora</div><div>Usuario</div><div>Acción</div><div>Módulo</div><div>Detalle</div>';
+    contenedor.appendChild(header);
+
+    registros.forEach(registro => {
+        const modulo = NOMBRES_MODULO_AUDITORIA[registro.modulo] || registro.modulo || '—';
+        const numero = registro.id_registro != null && registro.modulo !== 'Auth' ? `#${registro.id_registro} ` : '';
+        const fila = document.createElement('div');
+        fila.className = 'fila-grid-auditoria';
+        fila.innerHTML = `
+            <div>${escaparHTML(formatearFecha(registro.fecha_hora))}</div>
+            <div><strong>${escaparHTML(registro.usuario)}</strong></div>
+            <div><span class="accion-auditoria ${claseAccionAuditoria(registro.accion)}">${escaparHTML(registro.accion)}</span></div>
+            <div>${escaparHTML(modulo)}</div>
+            <div>${escaparHTML(numero)}${escaparHTML(registro.detalle || '')}</div>
+        `;
+        contenedor.appendChild(fila);
+    });
+}
+
+
 // CONTROLADOR DE NAVEGACIÓN SPA
-const SECCIONES_SOLO_ADMIN = ['estados', 'roles', 'usuarios', 'usuarios-detalle'];
+const SECCIONES_SOLO_ADMIN = ['estados', 'roles', 'usuarios', 'usuarios-detalle', 'auditoria'];
 
 function mostrarSeccion(idSeccion) {
     // Las secciones de administración solo se abren para administradores
@@ -1099,6 +1162,9 @@ function mostrarSeccion(idSeccion) {
         const seccionAMostrar = document.getElementById(idSeccion);
         if (seccionAMostrar) seccionAMostrar.classList.add('activa');
     }
+
+    // La auditoría se vuelve a pedir cada vez que se abre, para ver los cambios más recientes
+    if (idSeccion === 'auditoria' && sesion) cargarAuditoria();
 
     // Marca el botón activo en el sidebar del Dashboard
     document.querySelectorAll('nav a').forEach(link => {

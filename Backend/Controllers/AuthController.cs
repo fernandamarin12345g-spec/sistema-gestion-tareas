@@ -1,3 +1,4 @@
+using Backend.Auditoria;
 using Backend.Seguridad;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +12,13 @@ namespace Backend.Controllers
     {
         private readonly IConfiguration _configuracion;
         private readonly ServicioTokens _servicioTokens;
+        private readonly ServicioAuditoria _auditoria;
 
-        public AuthController(IConfiguration configuracion, ServicioTokens servicioTokens)
+        public AuthController(IConfiguration configuracion, ServicioTokens servicioTokens, ServicioAuditoria auditoria)
         {
             _configuracion = configuracion;
             _servicioTokens = servicioTokens;
+            _auditoria = auditoria;
         }
 
         public class LoginDto
@@ -72,10 +75,13 @@ namespace Backend.Controllers
             // así no se revela qué correos están registrados.
             if (usuario == null || !ServicioContrasenas.Verificar(datos.contrasena, hashGuardado))
             {
+                // Auditoría: intento fallido, con el correo que se escribió (nunca la contraseña)
+                _auditoria.Registrar(usuario?.Id, "Inicio de sesión fallido", "Auth", null, datos.correo.Trim());
                 return Unauthorized(new { mensaje = "Correo o contraseña incorrectos." });
             }
 
             var (token, expira) = _servicioTokens.CrearToken(usuario);
+            _auditoria.Registrar(usuario.Id, "Inicio de sesión", "Auth", usuario.Id, usuario.Correo);
 
             return Ok(new
             {

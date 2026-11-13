@@ -339,3 +339,17 @@ Content-Type: application/json
 {
   "id_estado": 9
 }
+
+### ===== VERSIÓN 5: AUDITORÍA =====
+
+### 45. Ver la auditoría como Administrador (esperado: 200 OK; aparecen los cambios de las pruebas 43 y 44)
+GET {{Backend_HostAddress}}/api/Auditoria?limite=20
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 46. Ver solo la auditoría de Tareas (esperado: 200 OK, solo registros con "modulo": "Tareas")
+GET {{Backend_HostAddress}}/api/Auditoria?modulo=Tareas
+Authorization: Bearer {{login.response.body.$.token}}
+
+### 47. El Líder de Proyecto intenta ver la auditoría (esperado: 403 Forbidden, solo Administrador)
+GET {{Backend_HostAddress}}/api/Auditoria
+Authorization: Bearer {{loginLider.response.body.$.token}}

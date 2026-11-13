@@ -17,6 +17,8 @@ services:
       - ConnectionStrings__DefaultConnection=Data Source=/app/datos/gestion_tareas.sqlite
       # La clave para firmar los tokens JWT viene del archivo .env (no se sube a Git)
       - Jwt__Clave=${JWT_CLAVE}
+      # Hora de Colombia: sin esto el contenedor usa la hora UTC (5 horas más) en las fechas que guarda la API
+      - TZ=America/Bogota
     volumes:
       - ./datos:/app/datos
     ports:

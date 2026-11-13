@@ -1,4 +1,5 @@
 using System.Text;
+using Backend.Auditoria;
 using Backend.Seguridad;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -6,8 +7,14 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ===== AUDITORÍA =====
+// ServicioAuditoria escribe en Auditoria_Log; FiltroAuditoria lo llama después de cada cambio (POST, PUT, PATCH, DELETE).
+builder.Services.AddSingleton<ServicioAuditoria>();
+builder.Services.AddScoped<FiltroAuditoria>();
+
 // Configuro los servicios necesarios para el contenedor de la aplicación.
-builder.Services.AddControllers();
+// El filtro de auditoría se aplica a todos los controladores.
+builder.Services.AddControllers(opciones => opciones.Filters.AddService<FiltroAuditoria>());
 // Aprendo sobre la configuración de OpenAPI en https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -64,6 +71,9 @@ builder.Services.AddAuthorization(opciones =>
 });
 
 var app = builder.Build();
+
+// Deja lista la tabla de auditoría (la crea o le agrega las columnas nuevas si hace falta)
+app.Services.GetRequiredService<ServicioAuditoria>().PrepararTabla();
 
 // Configuro el pipeline de solicitudes HTTP.
 if (app.Environment.IsDevelopment())
