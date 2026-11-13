@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/catalogos.dart';
+import '../config/tema.dart';
 import '../services/tarea_service.dart';
 import '../utils/formato.dart';
 
@@ -145,7 +146,7 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
+              const Icon(Icons.cloud_off, size: 64, color: Colores.textoTenue),
               const SizedBox(height: 16),
               Text(_error!, textAlign: TextAlign.center),
               const SizedBox(height: 16),
@@ -158,94 +159,105 @@ class _FormularioTareaScreenState extends State<FormularioTareaScreen> {
 
     const separacion = SizedBox(height: 12);
 
+    // Los campos van dentro de una tarjeta blanca, como el formulario de la web
     return Form(
       key: _formKey,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          TextFormField(
-            controller: _tituloController,
-            maxLength: 200,
-            decoration: const InputDecoration(labelText: 'Título', border: OutlineInputBorder()),
-            validator: (valor) => (valor == null || valor.trim().isEmpty) ? 'Escribe un título' : null,
-          ),
-          separacion,
-          TextFormField(
-            controller: _descripcionController,
-            maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Descripción (opcional)', border: OutlineInputBorder()),
-          ),
-          separacion,
-          DropdownButtonFormField<int>(
-            initialValue: _idEstado,
-            decoration: const InputDecoration(labelText: 'Estado', border: OutlineInputBorder()),
-            items: _estados.map((e) => DropdownMenuItem(value: e.id, child: Text(e.nombre))).toList(),
-            onChanged: (valor) => setState(() => _idEstado = valor),
-            validator: (valor) => valor == null ? 'Selecciona un estado' : null,
-          ),
-          separacion,
-          DropdownButtonFormField<String>(
-            initialValue: _prioridad,
-            decoration: const InputDecoration(labelText: 'Prioridad', border: OutlineInputBorder()),
-            items: _prioridades.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-            onChanged: (valor) => setState(() => _prioridad = valor ?? 'Media'),
-          ),
-          separacion,
-          DropdownButtonFormField<int?>(
-            initialValue: _idUsuario,
-            decoration: const InputDecoration(labelText: 'Responsable', border: OutlineInputBorder()),
-            items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('Sin responsable')),
-              ..._usuarios.map((u) => DropdownMenuItem<int?>(value: u.id, child: Text(u.nombre))),
-            ],
-            onChanged: (valor) => setState(() => _idUsuario = valor),
-          ),
-          separacion,
-          DropdownButtonFormField<int?>(
-            initialValue: _idProyecto,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Proyecto', border: OutlineInputBorder()),
-            items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('Sin proyecto')),
-              ..._proyectos.map((p) => DropdownMenuItem<int?>(
-                    value: p.id,
-                    child: Text(p.nombre, overflow: TextOverflow.ellipsis),
-                  )),
-            ],
-            onChanged: (valor) => setState(() => _idProyecto = valor),
-          ),
-          separacion,
-          InputDecorator(
-            decoration: const InputDecoration(labelText: 'Fecha límite (opcional)', border: OutlineInputBorder()),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(_fechaLimite == null ? 'Sin fecha límite' : formatearFecha(fechaParaApi(_fechaLimite!))),
-                ),
-                if (_fechaLimite != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    tooltip: 'Quitar fecha',
-                    onPressed: () => setState(() => _fechaLimite = null),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _tituloController,
+                    maxLength: 200,
+                    decoration: const InputDecoration(labelText: 'Título'),
+                    validator: (valor) => (valor == null || valor.trim().isEmpty) ? 'Escribe un título' : null,
                   ),
-                IconButton(
-                  icon: const Icon(Icons.calendar_month),
-                  tooltip: 'Elegir fecha',
-                  onPressed: _elegirFecha,
-                ),
+                  separacion,
+                  TextFormField(
+                    controller: _descripcionController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: 'Descripción (opcional)'),
+                  ),
+                  separacion,
+                  DropdownButtonFormField<int>(
+                    initialValue: _idEstado,
+                    decoration: const InputDecoration(labelText: 'Estado'),
+                    items: _estados.map((e) => DropdownMenuItem(value: e.id, child: Text(e.nombre))).toList(),
+                    onChanged: (valor) => setState(() => _idEstado = valor),
+                    validator: (valor) => valor == null ? 'Selecciona un estado' : null,
+                  ),
+                  separacion,
+                  DropdownButtonFormField<String>(
+                    initialValue: _prioridad,
+                    decoration: const InputDecoration(labelText: 'Prioridad'),
+                    items: _prioridades.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                    onChanged: (valor) => setState(() => _prioridad = valor ?? 'Media'),
+                  ),
+                  separacion,
+                  DropdownButtonFormField<int?>(
+                    initialValue: _idUsuario,
+                    decoration: const InputDecoration(labelText: 'Responsable'),
+                    items: [
+                      const DropdownMenuItem<int?>(value: null, child: Text('Sin responsable')),
+                      ..._usuarios.map((u) => DropdownMenuItem<int?>(value: u.id, child: Text(u.nombre))),
+                    ],
+                    onChanged: (valor) => setState(() => _idUsuario = valor),
+                  ),
+                  separacion,
+                  DropdownButtonFormField<int?>(
+                    initialValue: _idProyecto,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Proyecto'),
+                    items: [
+                      const DropdownMenuItem<int?>(value: null, child: Text('Sin proyecto')),
+                      ..._proyectos.map((p) => DropdownMenuItem<int?>(
+                            value: p.id,
+                            child: Text(p.nombre, overflow: TextOverflow.ellipsis),
+                          )),
+                    ],
+                    onChanged: (valor) => setState(() => _idProyecto = valor),
+                  ),
+                  separacion,
+                  InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Fecha límite (opcional)'),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(_fechaLimite == null ? 'Sin fecha límite' : formatearFecha(fechaParaApi(_fechaLimite!))),
+                        ),
+                        if (_fechaLimite != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            tooltip: 'Quitar fecha',
+                            onPressed: () => setState(() => _fechaLimite = null),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_month),
+                          tooltip: 'Elegir fecha',
+                          onPressed: _elegirFecha,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _guardando ? null : _guardar,
+                      child: _guardando
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Crear Tarea'),
+                    ),
+                  ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _guardando ? null : _guardar,
-              child: _guardando
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Guardar'),
-            ),
-          ),
+        ),
         ],
       ),
     );

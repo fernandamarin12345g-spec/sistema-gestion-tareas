@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/catalogos.dart';
 import '../models/tarea.dart';
 import '../services/tarea_service.dart';
+import '../config/tema.dart';
 import '../utils/formato.dart';
 
 class DetalleTareaScreen extends StatefulWidget {
@@ -55,15 +56,21 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
 
     final elegido = await showModalBottomSheet<Estado>(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (contextoHoja) => SafeArea(
         child: ListView(
           shrinkWrap: true,
           children: [
-            const ListTile(title: Text('Cambiar estado', style: TextStyle(fontWeight: FontWeight.bold))),
+            const ListTile(
+              title: Text('Cambiar estado', style: TextStyle(fontWeight: FontWeight.bold, color: Colores.titulo)),
+            ),
             ...estados.map((estado) => ListTile(
-                  title: Text(estado.nombre),
-                  subtitle: estado.esFinal ? const Text('Cierra la tarea') : null,
-                  trailing: estado.id == _tarea.idEstado ? const Icon(Icons.check) : null,
+                  title: Text(estado.nombre, style: const TextStyle(color: Colores.texto)),
+                  subtitle: estado.esFinal
+                      ? const Text('Cierra la tarea', style: TextStyle(color: Color(0xFF15803D)))
+                      : null,
+                  trailing: estado.id == _tarea.idEstado ? const Icon(Icons.check, color: Colores.azul) : null,
                   onTap: () => Navigator.pop(contextoHoja, estado),
                 )),
           ],
@@ -94,7 +101,11 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
         content: Text('¿Segura que deseas eliminar "${_tarea.titulo}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(contextoDialogo, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(contextoDialogo, true), child: const Text('Eliminar')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colores.rojo),
+            onPressed: () => Navigator.pop(contextoDialogo, true),
+            child: const Text('Eliminar'),
+          ),
         ],
       ),
     );
@@ -115,7 +126,6 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colores = coloresPrioridad(_tarea.prioridad);
     final sesion = widget.servicio.sesion;
 
     // Permisos (la API también los valida): eliminar solo Administrador;
@@ -123,66 +133,91 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
     final puedeEliminar = sesion?.esAdmin ?? false;
     final puedeCambiarEstado =
         (sesion?.gestionaTareas ?? false) || (sesion != null && _tarea.idUsuario == sesion.idUsuario);
+    final sinDescripcion = _tarea.descripcion == null || _tarea.descripcion!.trim().isEmpty;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Tarea #${_tarea.id}'),
-        actions: [
-          if (puedeEliminar)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Eliminar',
-              onPressed: _trabajando ? null : _eliminar,
-            ),
-        ],
-      ),
+      appBar: AppBar(title: Text('Tarea #${_tarea.id}')),
       body: RefreshIndicator(
         onRefresh: _recargar,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (_tarea.atrasada)
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Esta tarea está atrasada: su fecha límite ya pasó y todavía no está cerrada.',
-                  style: TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.bold),
+            // Misma tarjeta de detalle de la web (.tarjeta-detalle)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_tarea.atrasada)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colores.avisoFondo,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colores.avisoBorde),
+                        ),
+                        child: const Text(
+                          'Esta tarea está atrasada: su fecha límite ya pasó y todavía no está cerrada.',
+                          style: TextStyle(color: Colores.avisoTexto, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    Text(
+                      '#${_tarea.id} · ${_tarea.titulo}',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colores.titulo),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      sinDescripcion ? 'Sin descripción' : _tarea.descripcion!,
+                      style: TextStyle(
+                        color: Colores.textoSuave,
+                        fontStyle: sinDescripcion ? FontStyle.italic : FontStyle.normal,
+                      ),
+                    ),
+                    const Divider(height: 32),
+                    // Datos en dos columnas (.detalle-datos)
+                    _FilaDatos(
+                      izquierda: _Dato(etiqueta: 'Estado', valor: Etiqueta.estado(_tarea.estado)),
+                      derecha: _Dato(etiqueta: 'Prioridad', valor: Etiqueta.prioridad(_tarea.prioridad)),
+                    ),
+                    _FilaDatos(
+                      izquierda: _Dato.texto('Responsable', _tarea.responsable),
+                      derecha: _Dato.texto('Proyecto', _tarea.proyecto),
+                    ),
+                    _FilaDatos(
+                      izquierda: _Dato.texto('Fecha de creación', formatearFecha(_tarea.fechaCreacion)),
+                      derecha: _Dato.texto(
+                        'Fecha límite',
+                        formatearFecha(_tarea.fechaLimite),
+                        color: _tarea.atrasada ? Colores.textoAtrasada : Colores.titulo,
+                      ),
+                    ),
+                    _FilaDatos(
+                      izquierda: _Dato.texto('Fecha de finalización', formatearFecha(_tarea.fechaFinalizacion)),
+                      derecha: _Dato.texto('Última actualización', formatearFecha(_tarea.fechaActualizacion)),
+                    ),
+                    if (puedeCambiarEstado) ...[
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        onPressed: _trabajando ? null : _cambiarEstado,
+                        icon: const Icon(Icons.swap_horiz),
+                        label: const Text('Cambiar estado'),
+                      ),
+                    ],
+                    if (puedeEliminar) ...[
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: Colores.rojo),
+                        onPressed: _trabajando ? null : _eliminar,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Eliminar'),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            Text(_tarea.titulo, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text(
-              _tarea.descripcion ?? 'Sin descripción',
-              style: TextStyle(color: Colors.grey.shade700, fontStyle: _tarea.descripcion == null ? FontStyle.italic : null),
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              children: [
-                Etiqueta(texto: _tarea.estado, fondo: const Color(0xFFE0F2FE), colorTexto: const Color(0xFF0369A1)),
-                Etiqueta(texto: _tarea.prioridad, fondo: colores.fondo, colorTexto: colores.texto),
-              ],
-            ),
-            const Divider(height: 32),
-            _Dato(etiqueta: 'Responsable', valor: _tarea.responsable),
-            _Dato(etiqueta: 'Proyecto', valor: _tarea.proyecto),
-            _Dato(etiqueta: 'Fecha de creación', valor: formatearFecha(_tarea.fechaCreacion)),
-            _Dato(etiqueta: 'Fecha límite', valor: formatearFecha(_tarea.fechaLimite)),
-            _Dato(etiqueta: 'Fecha de finalización', valor: formatearFecha(_tarea.fechaFinalizacion)),
-            _Dato(etiqueta: 'Última actualización', valor: formatearFecha(_tarea.fechaActualizacion)),
-            if (puedeCambiarEstado) ...[
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _trabajando ? null : _cambiarEstado,
-                icon: const Icon(Icons.swap_horiz),
-                label: const Text('Cambiar estado'),
-              ),
-            ],
           ],
         ),
       ),
@@ -190,27 +225,56 @@ class _DetalleTareaScreenState extends State<DetalleTareaScreen> {
   }
 }
 
-// Widget pequeño para mostrar "Etiqueta: valor" en una fila.
-class _Dato extends StatelessWidget {
-  final String etiqueta;
-  final String valor;
+/// Dos datos lado a lado.
+class _FilaDatos extends StatelessWidget {
+  final Widget izquierda;
+  final Widget derecha;
 
-  const _Dato({required this.etiqueta, required this.valor});
+  const _FilaDatos({required this.izquierda, required this.derecha});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 150,
-            child: Text(etiqueta, style: const TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          Expanded(child: Text(valor)),
+          Expanded(child: izquierda),
+          const SizedBox(width: 16),
+          Expanded(child: derecha),
         ],
       ),
+    );
+  }
+}
+
+/// Un dato: etiqueta gris en mayúsculas y el valor debajo.
+class _Dato extends StatelessWidget {
+  final String etiqueta;
+  final Widget valor;
+
+  const _Dato({required this.etiqueta, required this.valor});
+
+  /// Dato de texto en negrita.
+  factory _Dato.texto(String etiqueta, String texto, {Color color = Colores.titulo}) {
+    return _Dato(
+      etiqueta: etiqueta,
+      valor: Text(texto, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          etiqueta.toUpperCase(),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colores.textoTenue),
+        ),
+        const SizedBox(height: 6),
+        Align(alignment: Alignment.centerLeft, child: valor),
+      ],
     );
   }
 }

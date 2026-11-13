@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../config/tema.dart';
+
 /// Convierte "2026-10-26" en "26/10/2026" y "2026-10-26 17:40:06" en "26/10/2026 17:40".
 String formatearFecha(String? texto) {
   if (texto == null || texto.isEmpty) return '—';
@@ -33,19 +35,36 @@ String fechaParaApi(DateTime fecha) {
   }
 }
 
-/// Etiqueta pequeña de color (prioridad, "Atrasada", etc.).
+/// Píldora de color (.badge-prioridad, "Atrasada", etc.).
 class Etiqueta extends StatelessWidget {
   final String texto;
   final Color fondo;
   final Color colorTexto;
+  final Color? borde;
 
-  const Etiqueta({super.key, required this.texto, required this.fondo, required this.colorTexto});
+  const Etiqueta({super.key, required this.texto, required this.fondo, required this.colorTexto, this.borde});
+
+  /// Píldora azul del estado (.badge-estado).
+  const Etiqueta.estado(this.texto, {super.key})
+      : fondo = Colores.estadoFondo,
+        colorTexto = Colores.estadoTexto,
+        borde = Colores.estadoBorde;
+
+  /// Píldora con los colores de la prioridad.
+  factory Etiqueta.prioridad(String prioridad, {Key? key}) {
+    final colores = coloresPrioridad(prioridad);
+    return Etiqueta(key: key, texto: prioridad, fondo: colores.fondo, colorTexto: colores.texto);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: fondo, borderRadius: BorderRadius.circular(12)),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: fondo,
+        borderRadius: BorderRadius.circular(20),
+        border: borde == null ? null : Border.all(color: borde!),
+      ),
       child: Text(
         texto,
         style: TextStyle(color: colorTexto, fontSize: 12, fontWeight: FontWeight.bold),

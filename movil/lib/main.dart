@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'config/tema.dart';
 import 'models/sesion.dart';
 import 'screens/lista_tareas_screen.dart';
 import 'screens/login_screen.dart';
@@ -20,10 +21,7 @@ class AppGestionTareas extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Gestión de Tareas',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
+      theme: temaApp(), // Mismos colores de la web y del escritorio
       home: PantallaInicio(servicio: servicio),
     );
   }
