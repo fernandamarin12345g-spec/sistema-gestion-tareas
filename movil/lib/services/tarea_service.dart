@@ -232,7 +232,7 @@ class TareaService {
   }
 
   // ---------------------------------------------------------------------
-  // Catálogos para el formulario
+  // Catálogos (listas desplegables y maestros)
   // ---------------------------------------------------------------------
 
   Future<List<Estado>> obtenerEstados() async {
@@ -249,6 +249,58 @@ class TareaService {
     final respuesta = await _enviar(() => _cliente.get(_url('/Usuarios'), headers: _encabezados));
     return (_decodificar(respuesta) as List).map((e) => Usuario.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  Future<List<Rol>> obtenerRoles() async {
+    final respuesta = await _enviar(() => _cliente.get(_url('/Roles'), headers: _encabezados));
+    return (_decodificar(respuesta) as List).map((e) => Rol.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  // ---------------------------------------------------------------------
+  // Maestros de Estados, Roles y Usuarios (solo Administrador)
+  // Si el id es null se crea (POST); si no, se actualiza (PUT).
+  // ---------------------------------------------------------------------
+
+  Future<void> _guardar(String ruta, int? id, Map<String, dynamic> datos) async {
+    final cuerpo = jsonEncode(datos);
+    if (id == null) {
+      await _enviar(() => _cliente.post(_url(ruta), headers: _encabezados, body: cuerpo));
+    } else {
+      await _enviar(() => _cliente.put(_url('$ruta/$id'), headers: _encabezados, body: cuerpo));
+    }
+  }
+
+  Future<void> _eliminar(String ruta, int id) async {
+    await _enviar(() => _cliente.delete(_url('$ruta/$id'), headers: _encabezados));
+  }
+
+  /// POST /api/Estados o PUT /api/Estados/{id}
+  Future<void> guardarEstado({int? id, required String nombre, required bool esFinal}) =>
+      _guardar('/Estados', id, {'nombre_estado': nombre, 'es_final': esFinal});
+
+  Future<void> eliminarEstado(int id) => _eliminar('/Estados', id);
+
+  /// POST /api/Roles o PUT /api/Roles/{id}
+  Future<void> guardarRol({int? id, required String nombre, required bool esAdmin, required bool gestionaTareas}) =>
+      _guardar('/Roles', id, {'nombre_rol': nombre, 'is_admin': esAdmin, 'gestiona_tareas': gestionaTareas});
+
+  Future<void> eliminarRol(int id) => _eliminar('/Roles', id);
+
+  /// POST /api/Usuarios o PUT /api/Usuarios/{id}. Al editar, una contraseña vacía no se cambia.
+  Future<void> guardarUsuario({
+    int? id,
+    required String nombre,
+    required String correo,
+    required int idRol,
+    String? contrasena,
+  }) =>
+      _guardar('/Usuarios', id, {
+        'nombre': nombre,
+        'correo': correo,
+        'id_rol': idRol,
+        'contrasena': (contrasena == null || contrasena.isEmpty) ? null : contrasena,
+      });
+
+  Future<void> eliminarUsuario(int id) => _eliminar('/Usuarios', id);
 
   // ---------------------------------------------------------------------
   // Persistencia local básica (shared_preferences)

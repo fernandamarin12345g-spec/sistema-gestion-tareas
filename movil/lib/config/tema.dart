@@ -24,6 +24,10 @@ class Colores {
   // Botones
   static const azul = Color(0xFF0EA5E9);
   static const rojo = Color(0xFFEF4444);
+  static const naranja = Color(0xFFF59E0B); // Botón Editar
+  static const gris = Color(0xFF64748B); // Botón Ver
+  static const verdeFondo = Color(0xFFDCFCE7);
+  static const verdeTexto = Color(0xFF166534);
 
   // Badges y avisos
   static const estadoFondo = Color(0xFFE0F2FE);

@@ -4,15 +4,19 @@ import '../config/tema.dart';
 import '../models/tarea.dart';
 import '../services/tarea_service.dart';
 import '../utils/formato.dart';
+import '../widgets/comunes.dart';
 import '../widgets/menu_lateral.dart';
 import 'detalle_tarea_screen.dart';
 import 'formulario_tarea_screen.dart';
-import 'login_screen.dart';
 
 class ListaTareasScreen extends StatefulWidget {
   final TareaService servicio;
 
-  const ListaTareasScreen({super.key, required this.servicio});
+  /// Si se abre desde Proyectos ("Ver tareas"), muestra solo las tareas de ese proyecto.
+  final int? idProyecto;
+  final String? nombreProyecto;
+
+  const ListaTareasScreen({super.key, required this.servicio, this.idProyecto, this.nombreProyecto});
 
   @override
   State<ListaTareasScreen> createState() => _ListaTareasScreenState();
@@ -29,9 +33,13 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
   // Filtro por estado (los mismos botones de la web: "Todas", "Pendiente"...)
   String _filtroEstado = 'Todas';
 
+  // Filtro por proyecto (viene de la sección Proyectos)
+  int? _idProyecto;
+
   @override
   void initState() {
     super.initState();
+    _idProyecto = widget.idProyecto;
     _cargar();
   }
 
@@ -64,14 +72,7 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
   }
 
   /// Borra la sesión del teléfono y vuelve a la pantalla de inicio de sesión.
-  Future<void> _cerrarSesion({String? mensaje}) async {
-    await widget.servicio.cerrarSesion();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => LoginScreen(servicio: widget.servicio, mensaje: mensaje)),
-      (_) => false,
-    );
-  }
+  Future<void> _cerrarSesion({String? mensaje}) => cerrarSesionYSalir(context, widget.servicio, mensaje: mensaje);
 
   Future<void> _abrirFormulario() async {
     final creada = await Navigator.push<bool>(
@@ -104,7 +105,7 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
           IconButton(icon: const Icon(Icons.refresh), tooltip: 'Actualizar', onPressed: _cargar),
         ],
       ),
-      drawer: MenuLateral(sesion: widget.servicio.sesion, onCerrarSesion: _cerrarSesion),
+      drawer: MenuLateral(servicio: widget.servicio, actual: Seccion.tareas),
       body: _construirCuerpo(),
       // Solo Administrador y Líder de Proyecto pueden crear tareas
       floatingActionButton: (widget.servicio.sesion?.gestionaTareas ?? false)
@@ -148,8 +149,9 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
 
     // Estados que aparecen en las tareas, para los botones de filtro
     final estados = <String>{for (final t in _tareas) t.estado}.toList();
+    final delProyecto = _idProyecto == null ? _tareas : _tareas.where((t) => t.idProyecto == _idProyecto).toList();
     final visibles =
-        _filtroEstado == 'Todas' ? _tareas : _tareas.where((t) => t.estado == _filtroEstado).toList();
+        _filtroEstado == 'Todas' ? delProyecto : delProyecto.where((t) => t.estado == _filtroEstado).toList();
 
     // 3. Resumen, filtros y lista (deslizar hacia abajo para actualizar)
     return RefreshIndicator(
@@ -171,25 +173,28 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
                 style: const TextStyle(color: Color(0xFF854D0E)),
               ),
             ),
-          _Resumen(tareas: _tareas),
+          ResumenKpis(tareas: delProyecto),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final nombre in ['Todas', ...estados])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _BotonFiltro(
-                      texto: nombre,
-                      oscuro: nombre == 'Todas',
-                      seleccionado: nombre == _filtroEstado,
-                      onTap: () => setState(() => _filtroEstado = nombre),
-                    ),
-                  ),
-              ],
+          if (_idProyecto != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InputChip(
+                  avatar: const Icon(Icons.folder_outlined, size: 18, color: Colores.estadoTexto),
+                  label: Text('Proyecto: ${widget.nombreProyecto ?? '#$_idProyecto'}'),
+                  labelStyle: const TextStyle(color: Colores.estadoTexto, fontWeight: FontWeight.bold),
+                  backgroundColor: Colores.estadoFondo,
+                  side: const BorderSide(color: Colores.estadoBorde),
+                  deleteIconColor: Colores.estadoTexto,
+                  onDeleted: () => setState(() => _idProyecto = null), // Quitar el filtro
+                ),
+              ),
             ),
+          FilaFiltros(
+            opciones: estados,
+            seleccionado: _filtroEstado,
+            onCambio: (nombre) => setState(() => _filtroEstado = nombre),
           ),
           const SizedBox(height: 12),
           if (visibles.isEmpty)
@@ -207,108 +212,6 @@ class _ListaTareasScreenState extends State<ListaTareasScreen> {
               child: _TarjetaTarea(tarea: tarea, onTap: () => _abrirDetalle(tarea)),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Indicadores del dashboard: total, abiertas, atrasadas (en rojo si hay) y cerradas.
-class _Resumen extends StatelessWidget {
-  final List<Tarea> tareas;
-
-  const _Resumen({required this.tareas});
-
-  @override
-  Widget build(BuildContext context) {
-    final cerradas = tareas.where((t) => t.esFinal).length;
-    final atrasadas = tareas.where((t) => t.atrasada).length;
-
-    return Row(
-      children: [
-        _Kpi(titulo: 'Total', valor: tareas.length),
-        const SizedBox(width: 8),
-        _Kpi(titulo: 'Abiertas', valor: tareas.length - cerradas),
-        const SizedBox(width: 8),
-        _Kpi(titulo: 'Atrasadas', valor: atrasadas, alerta: atrasadas > 0),
-        const SizedBox(width: 8),
-        _Kpi(titulo: 'Cerradas', valor: cerradas),
-      ],
-    );
-  }
-}
-
-class _Kpi extends StatelessWidget {
-  final String titulo;
-  final int valor;
-  final bool alerta;
-
-  const _Kpi({required this.titulo, required this.valor, this.alerta = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
-        decoration: BoxDecoration(
-          color: alerta ? Colores.filaAtrasada : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: alerta ? Colores.avisoBorde : Colores.borde),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              titulo.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: alerta ? Colores.avisoTexto : Colores.textoSuave,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '$valor',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colores.titulo),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Botón redondeado de filtro (.btn-filtro). "Todas" va en azul oscuro; el activo lleva contorno azul.
-class _BotonFiltro extends StatelessWidget {
-  final String texto;
-  final bool oscuro;
-  final bool seleccionado;
-  final VoidCallback onTap;
-
-  const _BotonFiltro({required this.texto, required this.oscuro, required this.seleccionado, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: oscuro ? Colores.lateral : Colores.estadoFondo,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: seleccionado ? Colores.azul : Colors.transparent, width: 2),
-        ),
-        child: Text(
-          texto,
-          style: TextStyle(
-            color: oscuro ? Colors.white : Colores.estadoTexto,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-          ),
-        ),
       ),
     );
   }
