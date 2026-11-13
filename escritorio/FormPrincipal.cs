@@ -1,198 +1,171 @@
-using System.Text;
-
 namespace Escritorio;
 
+/// <summary>Secciones de la app (las mismas secciones de la SPA web).</summary>
+public enum Seccion
+{
+    Inicio,
+    Tareas,
+    Detalle,
+    Proyectos,
+    Estados,
+    Roles,
+    Usuarios,
+    UsuariosRol
+}
+
 /// <summary>
-/// Ventana principal: lista de tareas con filtros, y acciones según el rol del usuario.
+/// Ventana principal con la misma estructura de la web: barra lateral oscura a la izquierda
+/// y el contenido a la derecha (grid-template-columns: 250px 1fr).
+/// Guarda los datos que vienen de la API y los comparte con todas las secciones.
 /// </summary>
 public class FormPrincipal : Form
 {
-    private readonly ApiCliente _api;
-    private readonly UsuarioSesion _usuario;
+    private readonly BarraLateral _lateral;
+    private readonly Panel _contenido = new() { Dock = DockStyle.Fill, BackColor = Estilo.FondoContenido };
+    private readonly DesplazamientoConRueda _rueda = new();
 
-    // Filtros
-    private readonly ComboBox _cmbEstado = Estilo.Lista();
-    private readonly ComboBox _cmbProyecto = Estilo.Lista();
-    private readonly CheckBox _chkAtrasadas = new() { Text = "Solo atrasadas", AutoSize = true, Margin = new Padding(12, 8, 3, 3) };
-    private readonly CheckBox _chkMias = new() { Text = "Solo mis tareas", AutoSize = true, Margin = new Padding(12, 8, 3, 3) };
-    private readonly Button _btnActualizar = Estilo.Boton("Actualizar");
+    private readonly VistaInicio _vistaInicio;
+    private readonly VistaTareas _vistaTareas;
+    private readonly VistaDetalle _vistaDetalle;
+    private readonly VistaProyectos _vistaProyectos;
+    private readonly VistaEstados _vistaEstados;
+    private readonly VistaRoles _vistaRoles;
+    private readonly VistaUsuarios _vistaUsuarios;
+    private readonly VistaUsuariosRol _vistaUsuariosRol;
+    private readonly Dictionary<Seccion, Pagina> _paginas;
 
-    // Tabla y acciones
-    private readonly DataGridView _tabla = new();
-    private readonly Button _btnNueva = Estilo.BotonPrincipal("+ Nueva tarea");
-    private readonly Button _btnDetalle = Estilo.Boton("Ver detalle");
-    private readonly Button _btnCambiarEstado = Estilo.Boton("Cambiar estado");
-    private readonly Button _btnEliminar = Estilo.Boton("Eliminar");
-    private readonly Button _btnCerrarSesion = Estilo.Boton("Cerrar sesión");
-
-    // Barra de estado inferior
-    private readonly ToolStripStatusLabel _lblUsuario = new();
-    private readonly ToolStripStatusLabel _lblResumen = new() { Spring = true, TextAlign = ContentAlignment.MiddleRight };
-
+    private List<Tarea> _tareas = new();
     private List<Estado> _estados = new();
-    private bool _cargandoFiltros;
+    private List<Proyecto> _proyectos = new();
+    private List<Usuario> _usuarios = new();
+    private List<Rol> _roles = new();
+    private Seccion _seccionActual;
     private bool _ocupado;
 
     public FormPrincipal(ApiCliente api)
     {
-        _api = api;
-        _usuario = api.Sesion?.Usuario ?? throw new InvalidOperationException("No hay una sesión iniciada.");
+        Api = api;
+        Usuario = api.Sesion?.Usuario ?? throw new InvalidOperationException("No hay una sesión iniciada.");
 
         Text = "Sistema de Gestión de Tareas · ESA SAS";
-        Font = Estilo.Fuente();
+        Font = Estilo.Normal;
+        BackColor = Estilo.FondoContenido;
         StartPosition = FormStartPosition.CenterScreen;
-        Size = LogicalToDeviceUnits(new Size(1150, 650));
-        MinimumSize = LogicalToDeviceUnits(new Size(900, 500));
+        Rectangle pantalla = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1366, 768);
+        Size = new Size(Math.Min(Estilo.E(1280), pantalla.Width), Math.Min(Estilo.E(800), pantalla.Height));
+        MinimumSize = new Size(Math.Min(Estilo.E(980), pantalla.Width), Math.Min(Estilo.E(600), pantalla.Height));
+        WindowState = FormWindowState.Maximized; // Se abre ocupando toda la pantalla, como el navegador
 
-        ConstruirFiltros(out FlowLayoutPanel panelFiltros);
-        ConstruirTabla();
-        ConstruirAcciones(out FlowLayoutPanel panelAcciones);
-
-        var barra = new StatusStrip();
-        barra.Items.Add(_lblUsuario);
-        barra.Items.Add(_lblResumen);
-        _lblUsuario.Text = $"{_usuario.Nombre} · {_usuario.Rol}";
-
-        // Orden de acoplamiento: la barra queda abajo del todo, luego las acciones,
-        // los filtros arriba y la tabla ocupa el espacio que sobra.
-        Controls.Add(_tabla);
-        Controls.Add(panelFiltros);
-        Controls.Add(panelAcciones);
-        Controls.Add(barra);
-        _tabla.BringToFront();
-
-        // Permisos: los botones que el rol no puede usar ni se muestran
-        _btnNueva.Visible = _usuario.GestionaTareas;   // Administrador y Líder de Proyecto
-        _btnEliminar.Visible = _usuario.EsAdmin;       // Solo Administrador
-
-        Load += async (_, _) => await EjecutarAsync(CargarTodoAsync);
-    }
-
-    // ---------------------------------------------------------------------
-    // Construcción de la interfaz
-    // ---------------------------------------------------------------------
-
-    private void ConstruirFiltros(out FlowLayoutPanel panel)
-    {
-        _cmbEstado.Width = LogicalToDeviceUnits(170);
-        _cmbProyecto.Width = LogicalToDeviceUnits(240);
-
-        panel = new FlowLayoutPanel
+        _lateral = new BarraLateral(Usuario);
+        _vistaInicio = new VistaInicio(this);
+        _vistaTareas = new VistaTareas(this);
+        _vistaDetalle = new VistaDetalle(this);
+        _vistaProyectos = new VistaProyectos(this);
+        _vistaEstados = new VistaEstados(this);
+        _vistaRoles = new VistaRoles(this);
+        _vistaUsuarios = new VistaUsuarios(this);
+        _vistaUsuariosRol = new VistaUsuariosRol(this);
+        _paginas = new Dictionary<Seccion, Pagina>
         {
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            Padding = new Padding(LogicalToDeviceUnits(8))
+            [Seccion.Inicio] = _vistaInicio,
+            [Seccion.Tareas] = _vistaTareas,
+            [Seccion.Detalle] = _vistaDetalle,
+            [Seccion.Proyectos] = _vistaProyectos,
+            [Seccion.Estados] = _vistaEstados,
+            [Seccion.Roles] = _vistaRoles,
+            [Seccion.Usuarios] = _vistaUsuarios,
+            [Seccion.UsuariosRol] = _vistaUsuariosRol
         };
-        panel.Controls.Add(Estilo.Etiqueta("Estado:"));
-        panel.Controls.Add(_cmbEstado);
-        panel.Controls.Add(Estilo.Etiqueta("Proyecto:"));
-        panel.Controls.Add(_cmbProyecto);
-        panel.Controls.Add(_chkAtrasadas);
-        panel.Controls.Add(_chkMias);
-        panel.Controls.Add(_btnActualizar);
-
-        // Cada vez que cambia un filtro se vuelve a pedir la lista a la API
-        _cmbEstado.SelectedIndexChanged += async (_, _) => await FiltrosCambiaronAsync();
-        _cmbProyecto.SelectedIndexChanged += async (_, _) => await FiltrosCambiaronAsync();
-        _chkAtrasadas.CheckedChanged += async (_, _) => await FiltrosCambiaronAsync();
-        _chkMias.CheckedChanged += async (_, _) => await FiltrosCambiaronAsync();
-        _btnActualizar.Click += async (_, _) => await EjecutarAsync(CargarTareasAsync);
-    }
-
-    private void ConstruirTabla()
-    {
-        _tabla.Dock = DockStyle.Fill;
-        _tabla.ReadOnly = true;
-        _tabla.AllowUserToAddRows = false;
-        _tabla.AllowUserToDeleteRows = false;
-        _tabla.AllowUserToResizeRows = false;
-        _tabla.MultiSelect = false;
-        _tabla.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        _tabla.RowHeadersVisible = false;
-        _tabla.AutoGenerateColumns = false;
-        _tabla.BackgroundColor = Color.White;
-        _tabla.BorderStyle = BorderStyle.None;
-        _tabla.RowTemplate.Height = LogicalToDeviceUnits(30);
-
-        _tabla.EnableHeadersVisualStyles = false;
-        _tabla.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-        _tabla.ColumnHeadersHeight = LogicalToDeviceUnits(34);
-        _tabla.ColumnHeadersDefaultCellStyle.BackColor = Estilo.Principal;
-        _tabla.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-        _tabla.ColumnHeadersDefaultCellStyle.Font = Estilo.Fuente(10F, FontStyle.Bold);
-        _tabla.DefaultCellStyle.SelectionBackColor = Estilo.FondoSeleccion;
-        _tabla.DefaultCellStyle.SelectionForeColor = Color.Black;
-        _tabla.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
-
-        AgregarColumna(nameof(Tarea.Id), "#", 50);
-        AgregarColumna(nameof(Tarea.Titulo), "Título", 0);
-        AgregarColumna(nameof(Tarea.Responsable), "Responsable", 160);
-        AgregarColumna(nameof(Tarea.Estado), "Estado", 120);
-        AgregarColumna(nameof(Tarea.Proyecto), "Proyecto", 190);
-        AgregarColumna(nameof(Tarea.Prioridad), "Prioridad", 90);
-        AgregarColumna(nameof(Tarea.FechaLimiteTexto), "Fecha límite", 110);
-        AgregarColumna(nameof(Tarea.AtrasadaTexto), "Atrasada", 80);
-
-        _tabla.DataBindingComplete += (_, _) => PintarAtrasadas();
-        _tabla.SelectionChanged += (_, _) => ActualizarBotones();
-        _tabla.CellDoubleClick += (_, e) =>
+        foreach (Pagina pagina in _paginas.Values)
         {
-            if (e.RowIndex >= 0) MostrarDetalle();
-        };
-    }
-
-    /// <param name="ancho">Ancho en píxeles; 0 = la columna ocupa el espacio que sobra.</param>
-    private void AgregarColumna(string propiedad, string titulo, int ancho)
-    {
-        var columna = new DataGridViewTextBoxColumn
-        {
-            DataPropertyName = propiedad,
-            HeaderText = titulo,
-            SortMode = DataGridViewColumnSortMode.NotSortable
-        };
-        if (ancho == 0)
-        {
-            columna.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-            columna.MinimumWidth = LogicalToDeviceUnits(180);
+            pagina.Visible = false;
+            _contenido.Controls.Add(pagina);
         }
-        else
+
+        // Primero el contenido (relleno) y después la barra lateral (izquierda)
+        Controls.Add(_contenido);
+        Controls.Add(_lateral);
+
+        // Menú: cada enlace abre su sección
+        foreach ((Seccion seccion, ItemMenu item) in _lateral.Items)
         {
-            columna.Width = LogicalToDeviceUnits(ancho);
+            item.Click += (_, _) => MostrarSeccion(seccion);
         }
-        _tabla.Columns.Add(columna);
-    }
-
-    private void ConstruirAcciones(out FlowLayoutPanel panel)
-    {
-        panel = new FlowLayoutPanel
+        _lateral.CerrarSesion.Click += (_, _) =>
         {
-            Dock = DockStyle.Bottom,
-            AutoSize = true,
-            Padding = new Padding(LogicalToDeviceUnits(8))
+            Api.CerrarSesion();
+            DialogResult = DialogResult.Retry; // Program.cs vuelve a mostrar el inicio de sesión
         };
-        panel.Controls.Add(_btnNueva);
-        panel.Controls.Add(_btnDetalle);
-        panel.Controls.Add(_btnCambiarEstado);
-        panel.Controls.Add(_btnEliminar);
-        panel.Controls.Add(_btnCerrarSesion);
-        _btnCerrarSesion.Margin = new Padding(LogicalToDeviceUnits(30), 3, 3, 3);
 
-        _btnNueva.Click += async (_, _) => await EjecutarAsync(NuevaTareaAsync);
-        _btnDetalle.Click += (_, _) => MostrarDetalle();
-        _btnCambiarEstado.Click += async (_, _) => await EjecutarAsync(CambiarEstadoAsync);
-        _btnEliminar.Click += async (_, _) => await EjecutarAsync(EliminarAsync);
-        _btnCerrarSesion.Click += (_, _) => CerrarSesion();
+        // La rueda del mouse desplaza la sección que está debajo del puntero
+        Application.AddMessageFilter(_rueda);
+        FormClosed += (_, _) => Application.RemoveMessageFilter(_rueda);
+
+        MostrarSeccion(Seccion.Inicio);
+        Load += async (_, _) => await EjecutarAsync(RecargarTodoAsync);
     }
 
     // ---------------------------------------------------------------------
-    // Carga de datos
+    // Datos compartidos por las secciones
     // ---------------------------------------------------------------------
+
+    public ApiCliente Api { get; }
+    public UsuarioSesion Usuario { get; }
+    public IReadOnlyList<Tarea> Tareas => _tareas;
+    public IReadOnlyList<Estado> Estados => _estados;
+    public IReadOnlyList<Proyecto> Proyectos => _proyectos;
+    public IReadOnlyList<Usuario> Usuarios => _usuarios;
+    public IReadOnlyList<Rol> Roles => _roles;
+
+    /// <summary>Carga todo desde la API (las peticiones van al mismo tiempo).</summary>
+    public async Task RecargarTodoAsync()
+    {
+        Task<List<Tarea>> tareas = Api.ObtenerTareasAsync();
+        Task<List<Estado>> estados = Api.ObtenerEstadosAsync();
+        Task<List<Proyecto>> proyectos = Api.ObtenerProyectosAsync();
+        Task<List<Usuario>> usuarios = Api.ObtenerUsuariosAsync();
+        Task<List<Rol>> roles = Usuario.EsAdmin ? Api.ObtenerRolesAsync() : Task.FromResult(new List<Rol>());
+        await Task.WhenAll(tareas, estados, proyectos, usuarios, roles);
+
+        _tareas = tareas.Result;
+        _estados = estados.Result;
+        _proyectos = proyectos.Result;
+        _usuarios = usuarios.Result;
+        _roles = roles.Result;
+        RefrescarVistas();
+    }
+
+    /// <summary>Después de crear, editar o eliminar una tarea: tareas, proyectos (cuentan tareas) y usuarios (listan tareas).</summary>
+    public async Task RecargarDatosAsync()
+    {
+        Task<List<Tarea>> tareas = Api.ObtenerTareasAsync();
+        Task<List<Proyecto>> proyectos = Api.ObtenerProyectosAsync();
+        Task<List<Usuario>> usuarios = Api.ObtenerUsuariosAsync();
+        await Task.WhenAll(tareas, proyectos, usuarios);
+
+        _tareas = tareas.Result;
+        _proyectos = proyectos.Result;
+        _usuarios = usuarios.Result;
+        RefrescarVistas();
+    }
+
+    private void RefrescarVistas()
+    {
+        _vistaInicio.Refrescar();
+        _vistaTareas.Refrescar();
+        _vistaProyectos.Refrescar();
+        if (!Usuario.EsAdmin) return;
+        _vistaEstados.Refrescar();
+        _vistaRoles.Refrescar();
+        _vistaUsuarios.Refrescar();
+        _vistaUsuariosRol.Refrescar();
+    }
 
     /// <summary>
     /// Ejecuta una acción que llama a la API mostrando el cursor de espera.
-    /// Si la sesión expiró, cierra la ventana y vuelve al inicio de sesión.
+    /// Si la sesión expiró, vuelve al inicio de sesión; si la API rechaza algo, muestra su mensaje.
     /// </summary>
-    private async Task EjecutarAsync(Func<Task> accion)
+    public async Task EjecutarAsync(Func<Task> accion)
     {
         if (_ocupado) return;
         _ocupado = true;
@@ -216,166 +189,205 @@ public class FormPrincipal : Form
         }
     }
 
-    private async Task CargarTodoAsync()
-    {
-        // Estados y proyectos se piden al mismo tiempo
-        Task<List<Estado>> pedirEstados = _api.ObtenerEstadosAsync();
-        Task<List<Proyecto>> pedirProyectos = _api.ObtenerProyectosAsync();
-        _estados = await pedirEstados;
-        List<Proyecto> proyectos = await pedirProyectos;
+    /// <summary>Pregunta Sí / No antes de eliminar (como confirm() en la web).</summary>
+    public bool Confirmar(string pregunta) =>
+        MessageBox.Show(this, pregunta, "Confirmar", MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button2) == DialogResult.Yes;
 
-        _cargandoFiltros = true; // Evita recargar la tabla mientras se llenan las listas
-        _cmbEstado.Items.Clear();
-        _cmbEstado.Items.Add(new Opcion(null, "Todos"));
-        foreach (Estado e in _estados)
+    // ---------------------------------------------------------------------
+    // Navegación
+    // ---------------------------------------------------------------------
+
+    public void MostrarSeccion(Seccion seccion)
+    {
+        // Las secciones de administración solo se abren para administradores
+        if (seccion is Seccion.Estados or Seccion.Roles or Seccion.Usuarios or Seccion.UsuariosRol && !Usuario.EsAdmin)
         {
-            _cmbEstado.Items.Add(new Opcion(e.Id, e.Nombre));
+            seccion = Seccion.Inicio;
         }
-        _cmbEstado.SelectedIndex = 0;
 
-        _cmbProyecto.Items.Clear();
-        _cmbProyecto.Items.Add(new Opcion(null, "Todos"));
-        foreach (Proyecto p in proyectos)
+        _seccionActual = seccion;
+        Pagina mostrar = _paginas[seccion];
+        foreach (Pagina pagina in _paginas.Values)
         {
-            _cmbProyecto.Items.Add(new Opcion(p.Id, p.Nombre));
+            pagina.Visible = pagina == mostrar;
         }
-        _cmbProyecto.SelectedIndex = 0;
-        _cargandoFiltros = false;
+        mostrar.PerformLayout();
 
-        await CargarTareasAsync();
-    }
-
-    private async Task FiltrosCambiaronAsync()
-    {
-        if (_cargandoFiltros) return;
-        await EjecutarAsync(CargarTareasAsync);
-    }
-
-    /// <summary>GET /api/Tareas con los filtros elegidos.</summary>
-    private async Task CargarTareasAsync()
-    {
-        int? idEstado = (_cmbEstado.SelectedItem as Opcion)?.Id;
-        int? idProyecto = (_cmbProyecto.SelectedItem as Opcion)?.Id;
-        int? idUsuario = _chkMias.Checked ? _usuario.IdUsuario : null;
-
-        List<Tarea> tareas = await _api.ObtenerTareasAsync(idEstado, idProyecto, idUsuario, _chkAtrasadas.Checked);
-        _tabla.DataSource = tareas;
-
-        int atrasadas = tareas.Count(t => t.Atrasada);
-        _lblResumen.Text = $"{tareas.Count} tarea(s) · {atrasadas} atrasada(s) · actualizado a las {DateTime.Now:HH:mm}";
-        ActualizarBotones();
-    }
-
-    /// <summary>Las tareas atrasadas se pintan en rojo claro.</summary>
-    private void PintarAtrasadas()
-    {
-        foreach (DataGridViewRow fila in _tabla.Rows)
+        // El enlace activo del menú (Detalle cuenta como Tareas; Usuarios del rol como Usuarios)
+        Seccion enlace = seccion switch
         {
-            if (fila.DataBoundItem is Tarea { Atrasada: true })
-            {
-                fila.DefaultCellStyle.BackColor = Estilo.FondoAtrasada;
-                fila.DefaultCellStyle.ForeColor = Estilo.TextoAtrasada;
-            }
-        }
-    }
-
-    private Tarea? TareaSeleccionada => _tabla.CurrentRow?.DataBoundItem as Tarea;
-
-    /// <summary>Activa los botones según la tarea seleccionada y el rol.</summary>
-    private void ActualizarBotones()
-    {
-        Tarea? tarea = TareaSeleccionada;
-        _btnDetalle.Enabled = tarea != null;
-        _btnEliminar.Enabled = tarea != null;
-        // Cambiar estado: quien gestiona tareas, o el responsable de la tarea
-        _btnCambiarEstado.Enabled = tarea != null && (_usuario.GestionaTareas || tarea.IdUsuario == _usuario.IdUsuario);
-    }
-
-    private void SeleccionarTarea(int idTarea)
-    {
-        foreach (DataGridViewRow fila in _tabla.Rows)
+            Seccion.Detalle => Seccion.Tareas,
+            Seccion.UsuariosRol => Seccion.Usuarios,
+            _ => seccion
+        };
+        foreach ((Seccion s, ItemMenu item) in _lateral.Items)
         {
-            if (fila.DataBoundItem is Tarea tarea && tarea.Id == idTarea)
-            {
-                _tabla.CurrentCell = fila.Cells[0];
-                return;
-            }
+            item.MarcarActivo(s == enlace);
         }
     }
 
     // ---------------------------------------------------------------------
-    // Acciones
+    // Acciones de tareas
     // ---------------------------------------------------------------------
 
-    private void MostrarDetalle()
+    /// <summary>GET /api/Tareas/{id} y abre la vista de detalle.</summary>
+    public void VerDetalle(int idTarea)
     {
-        Tarea? t = TareaSeleccionada;
-        if (t == null) return;
-
-        var texto = new StringBuilder();
-        texto.AppendLine(t.Titulo);
-        texto.AppendLine();
-        texto.AppendLine(string.IsNullOrWhiteSpace(t.Descripcion) ? "Sin descripción" : t.Descripcion);
-        texto.AppendLine();
-        texto.AppendLine($"Responsable: {t.Responsable}");
-        texto.AppendLine($"Estado: {t.Estado}");
-        texto.AppendLine($"Prioridad: {t.Prioridad}");
-        texto.AppendLine($"Proyecto: {t.Proyecto}");
-        texto.AppendLine($"Fecha de creación: {Formato.Fecha(t.FechaCreacion)}");
-        texto.AppendLine($"Fecha límite: {Formato.Fecha(t.FechaLimite)}{(t.Atrasada ? "  (ATRASADA)" : "")}");
-        texto.AppendLine($"Fecha de finalización: {Formato.Fecha(t.FechaFinalizacion)}");
-        texto.AppendLine($"Última actualización: {Formato.Fecha(t.FechaActualizacion)}");
-
-        MessageBox.Show(this, texto.ToString(), $"Tarea #{t.Id}", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        _ = EjecutarAsync(async () =>
+        {
+            Tarea tarea = await Api.ObtenerTareaAsync(idTarea);
+            _vistaDetalle.Mostrar(tarea);
+            MostrarSeccion(Seccion.Detalle);
+        });
     }
 
-    private async Task NuevaTareaAsync()
+    /// <summary>PATCH /api/Tareas/{id}/estado y vuelve a mostrar el detalle actualizado.</summary>
+    public void CambiarEstado(int idTarea, int idEstado)
     {
-        List<Usuario> usuarios = await _api.ObtenerUsuariosAsync();
-        List<Proyecto> proyectos = await _api.ObtenerProyectosAsync();
-
-        using var formulario = new FormTarea(_api, usuarios, _estados, proyectos);
-        DialogResult resultado = formulario.ShowDialog(this);
-
-        if (resultado == DialogResult.Abort) throw new SesionExpiradaException();
-        if (resultado == DialogResult.OK) await CargarTareasAsync();
+        _ = EjecutarAsync(async () =>
+        {
+            await Api.CambiarEstadoAsync(idTarea, idEstado);
+            await RecargarDatosAsync();
+            Tarea tarea = await Api.ObtenerTareaAsync(idTarea);
+            _vistaDetalle.Mostrar(tarea);
+        });
     }
 
-    /// <summary>PATCH /api/Tareas/{id}/estado</summary>
-    private async Task CambiarEstadoAsync()
+    public void EditarTarea(Tarea tarea) => _vistaTareas.PrepararEdicion(tarea);
+
+    /// <summary>DELETE /api/Tareas/{id} (solo Administrador), con confirmación.</summary>
+    public void EliminarTarea(Tarea tarea)
     {
-        Tarea? tarea = TareaSeleccionada;
-        if (tarea == null) return;
+        if (!Confirmar($"¿Segura que deseas eliminar la tarea #{tarea.Id} \"{tarea.Titulo}\" de la base de datos?")) return;
 
-        using var dialogo = new FormCambiarEstado(tarea, _estados);
-        if (dialogo.ShowDialog(this) != DialogResult.OK) return;
-
-        Estado? nuevo = dialogo.EstadoElegido;
-        if (nuevo == null || nuevo.Id == tarea.IdEstado) return;
-
-        await _api.CambiarEstadoAsync(tarea.Id, nuevo.Id);
-        await CargarTareasAsync();
-        SeleccionarTarea(tarea.Id);
+        _ = EjecutarAsync(async () =>
+        {
+            await Api.EliminarTareaAsync(tarea.Id);
+            if (_seccionActual == Seccion.Detalle) MostrarSeccion(Seccion.Tareas);
+            await RecargarDatosAsync();
+        });
     }
 
-    /// <summary>DELETE /api/Tareas/{id} (solo Administrador)</summary>
-    private async Task EliminarAsync()
+    /// <summary>Botón "Ver tareas" de un proyecto.</summary>
+    public void VerTareasDeProyecto(int idProyecto)
     {
-        Tarea? tarea = TareaSeleccionada;
-        if (tarea == null) return;
-
-        DialogResult confirmar = MessageBox.Show(this,
-            $"¿Eliminar la tarea #{tarea.Id} \"{tarea.Titulo}\"?\nEsta acción no se puede deshacer.",
-            "Confirmar eliminación", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
-        if (confirmar != DialogResult.Yes) return;
-
-        await _api.EliminarTareaAsync(tarea.Id);
-        await CargarTareasAsync();
+        MostrarSeccion(Seccion.Tareas);
+        _vistaTareas.FiltrarPorProyecto(idProyecto);
     }
 
-    private void CerrarSesion()
+    // ---------------------------------------------------------------------
+    // Acciones de usuarios
+    // ---------------------------------------------------------------------
+
+    public void VerUsuariosDeRol(Rol rol)
     {
-        _api.CerrarSesion();
-        DialogResult = DialogResult.Retry; // Program.cs vuelve a mostrar el inicio de sesión
+        _vistaUsuariosRol.Mostrar(rol);
+        MostrarSeccion(Seccion.UsuariosRol);
+    }
+
+    public void EditarUsuario(Usuario usuario)
+    {
+        MostrarSeccion(Seccion.Usuarios);
+        _vistaUsuarios.PrepararEdicion(usuario);
+    }
+
+    public void EliminarUsuario(Usuario usuario)
+    {
+        if (!Confirmar($"¿Segura que deseas eliminar al usuario \"{usuario.Nombre}\"?")) return;
+
+        _ = EjecutarAsync(async () =>
+        {
+            await Api.EliminarUsuarioAsync(usuario.Id);
+            await RecargarTodoAsync();
+        });
+    }
+}
+
+/// <summary>Barra lateral oscura (header de la web): logo, menú y, abajo, el usuario con Cerrar sesión.</summary>
+public class BarraLateral : Panel
+{
+    private readonly UsuarioSesion _usuario;
+    private readonly List<(Seccion seccion, ItemMenu item)> _items = new();
+    private int _yUsuario;
+
+    public BarraLateral(UsuarioSesion usuario)
+    {
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer
+                 | ControlStyles.ResizeRedraw, true);
+        _usuario = usuario;
+        BackColor = Estilo.Lateral;
+        CerrarSesion.Font = Estilo.PequenaNegrita;
+
+        AgregarItem(Seccion.Inicio, "Inicio");
+        AgregarItem(Seccion.Tareas, "Tareas");
+        AgregarItem(Seccion.Proyectos, "Proyectos");
+        if (usuario.EsAdmin) // .solo-admin
+        {
+            AgregarItem(Seccion.Estados, "Estados");
+            AgregarItem(Seccion.Roles, "Roles");
+            AgregarItem(Seccion.Usuarios, "Usuarios");
+        }
+
+        Controls.Add(CerrarSesion);
+
+        // El ancho se pone al final: al cambiarlo se acomodan los controles, y para eso ya deben existir todos
+        Dock = DockStyle.Left;
+        Width = Estilo.E(250);
+    }
+
+    public IReadOnlyList<(Seccion seccion, ItemMenu item)> Items => _items;
+    public BotonWeb CerrarSesion { get; } =
+        new("Cerrar sesión", Estilo.LateralHover, Estilo.LateralBotonHover, Estilo.TextoClaro, Estilo.Lateral);
+
+    private void AgregarItem(Seccion seccion, string texto)
+    {
+        var item = new ItemMenu(texto);
+        _items.Add((seccion, item));
+        Controls.Add(item);
+    }
+
+    // header { padding: 2rem 1.5rem }
+    private static int RellenoX => Estilo.E(24);
+    private static int RellenoY => Estilo.E(32);
+    private static int AltoLogo => Estilo.E(32);
+
+    protected override void OnLayout(LayoutEventArgs levent)
+    {
+        base.OnLayout(levent);
+        int x = RellenoX;
+        int ancho = Width - RellenoX * 2;
+
+        // Logo + margin-bottom: 2rem, y luego los enlaces con gap: 15px
+        int y = RellenoY + AltoLogo + Estilo.E(32);
+        foreach ((Seccion _, ItemMenu item) in _items)
+        {
+            item.SetBounds(x, y, ancho, Estilo.E(44));
+            y += Estilo.E(44) + Estilo.E(15);
+        }
+
+        // Usuario y Cerrar sesión pegados abajo (margin-top: auto)
+        CerrarSesion.SetBounds(x, Height - RellenoY - Estilo.E(34), ancho, Estilo.E(34));
+        _yUsuario = CerrarSesion.Top - Estilo.E(10) - Estilo.E(44);
+        Invalidate();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        Graphics g = e.Graphics;
+        g.Clear(BackColor);
+
+        // "ESA SAS" en celeste con letter-spacing: 2px
+        Estilo.EscribirEspaciado(g, "ESA SAS", Estilo.Logo, Estilo.Celeste, new Rectangle(0, RellenoY, Width, AltoLogo), Estilo.E(2));
+
+        // .usuario-sesion: línea arriba (border-top), nombre y rol
+        int x = RellenoX;
+        int ancho = Width - RellenoX * 2;
+        using (var linea = new Pen(Estilo.LateralHover))
+        {
+            g.DrawLine(linea, x, _yUsuario - Estilo.E(20), x + ancho, _yUsuario - Estilo.E(20));
+        }
+        Estilo.Escribir(g, _usuario.Nombre, Estilo.Negrita, Estilo.TextoClaro, new Rectangle(x, _yUsuario, ancho, Estilo.E(22)));
+        Estilo.Escribir(g, _usuario.Rol, Estilo.Pequena, Estilo.TextoMenu, new Rectangle(x, _yUsuario + Estilo.E(24), ancho, Estilo.E(18)));
     }
 }

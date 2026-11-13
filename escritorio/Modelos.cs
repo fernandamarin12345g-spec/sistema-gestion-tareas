@@ -25,10 +25,6 @@ public class Tarea
     [JsonPropertyName("fecha_finalizacion")] public string? FechaFinalizacion { get; set; }
     [JsonPropertyName("fecha_actualizacion")] public string? FechaActualizacion { get; set; }
     [JsonPropertyName("atrasada")] public bool Atrasada { get; set; }
-
-    // Columnas calculadas para mostrar en la tabla
-    [JsonIgnore] public string FechaLimiteTexto => Formato.Fecha(FechaLimite);
-    [JsonIgnore] public string AtrasadaTexto => Atrasada ? "Sí" : "";
 }
 
 /// <summary>Datos para crear una tarea (POST /api/Tareas).</summary>
@@ -56,7 +52,10 @@ public class Proyecto
 {
     [JsonPropertyName("id_proyecto")] public int Id { get; set; }
     [JsonPropertyName("nombre")] public string Nombre { get; set; } = "";
+    [JsonPropertyName("descripcion")] public string? Descripcion { get; set; }
     [JsonPropertyName("estado")] public string Estado { get; set; } = "Activo";
+    [JsonPropertyName("total_tareas")] public int TotalTareas { get; set; }
+    [JsonPropertyName("tareas_abiertas")] public int TareasAbiertas { get; set; }
 
     public override string ToString() => Nombre;
 }
@@ -65,7 +64,28 @@ public class Usuario
 {
     [JsonPropertyName("id_usuario")] public int Id { get; set; }
     [JsonPropertyName("nombre")] public string Nombre { get; set; } = "";
+    [JsonPropertyName("correo")] public string Correo { get; set; } = "";
+    [JsonPropertyName("id_rol")] public int? IdRol { get; set; }
     [JsonPropertyName("nombre_rol")] public string Rol { get; set; } = "Sin rol";
+    [JsonPropertyName("tareas")] public List<TareaResumen> Tareas { get; set; } = new();
+
+    public override string ToString() => Nombre;
+}
+
+/// <summary>Tarea asignada a un usuario (viene dentro de GET /api/Usuarios).</summary>
+public class TareaResumen
+{
+    [JsonPropertyName("id_tarea")] public int Id { get; set; }
+    [JsonPropertyName("titulo")] public string Titulo { get; set; } = "";
+    [JsonPropertyName("estado")] public string Estado { get; set; } = "";
+}
+
+public class Rol
+{
+    [JsonPropertyName("id_rol")] public int Id { get; set; }
+    [JsonPropertyName("nombre_rol")] public string Nombre { get; set; } = "";
+    [JsonPropertyName("is_admin")] public bool EsAdmin { get; set; }
+    [JsonPropertyName("gestiona_tareas")] public bool GestionaTareas { get; set; }
 
     public override string ToString() => Nombre;
 }
@@ -86,6 +106,9 @@ public class UsuarioSesion
     [JsonPropertyName("rol")] public string Rol { get; set; } = "";
     [JsonPropertyName("es_admin")] public bool EsAdmin { get; set; }
     [JsonPropertyName("gestiona_tareas")] public bool GestionaTareas { get; set; }
+
+    /// <summary>Puede crear y editar tareas: Administrador o un rol que gestiona tareas (Líder de Proyecto).</summary>
+    [JsonIgnore] public bool PuedeGestionar => EsAdmin || GestionaTareas;
 }
 
 /// <summary>Una opción de lista desplegable con un id que puede ser null ("Todos", "Sin asignar").</summary>

@@ -156,6 +156,22 @@ public class ApiCliente
         return ObtenerAsync<List<Tarea>>(ruta);
     }
 
+    /// <summary>GET /api/Tareas: todas las tareas (los filtros se aplican en la app, igual que en la web).</summary>
+    public Task<List<Tarea>> ObtenerTareasAsync() => ObtenerAsync<List<Tarea>>("Tareas");
+
+    /// <summary>GET /api/Tareas/{id}: el detalle actualizado de una tarea.</summary>
+    public Task<Tarea> ObtenerTareaAsync(int idTarea) => ObtenerAsync<Tarea>($"Tareas/{idTarea}");
+
+    /// <summary>PUT /api/Tareas/{id} (solo Administrador y Líder de Proyecto)</summary>
+    public async Task ActualizarTareaAsync(int idTarea, NuevaTarea tarea)
+    {
+        using var peticion = new HttpRequestMessage(HttpMethod.Put, $"Tareas/{idTarea}")
+        {
+            Content = JsonContent.Create(tarea)
+        };
+        using HttpResponseMessage respuesta = await EnviarAsync(peticion);
+    }
+
     /// <summary>POST /api/Tareas (solo Administrador y Líder de Proyecto)</summary>
     public async Task CrearTareaAsync(NuevaTarea tarea)
     {
@@ -192,4 +208,42 @@ public class ApiCliente
     public Task<List<Proyecto>> ObtenerProyectosAsync() => ObtenerAsync<List<Proyecto>>("Proyectos");
 
     public Task<List<Usuario>> ObtenerUsuariosAsync() => ObtenerAsync<List<Usuario>>("Usuarios");
+
+    public Task<List<Rol>> ObtenerRolesAsync() => ObtenerAsync<List<Rol>>("Roles");
+
+    // ---------------------------------------------------------------------
+    // Maestros (solo Administrador): crear, editar y eliminar
+    // ---------------------------------------------------------------------
+
+    /// <summary>Envía un POST o PUT con un cuerpo JSON, o un DELETE sin cuerpo.</summary>
+    private async Task EnviarJsonAsync(HttpMethod metodo, string ruta, object? cuerpo = null)
+    {
+        using var peticion = new HttpRequestMessage(metodo, ruta);
+        if (cuerpo != null) peticion.Content = JsonContent.Create(cuerpo, cuerpo.GetType());
+        using HttpResponseMessage respuesta = await EnviarAsync(peticion);
+    }
+
+    /// <summary>POST /api/Estados (idEstado null) o PUT /api/Estados/{id}</summary>
+    public Task GuardarEstadoAsync(int? idEstado, string nombre, bool esFinal) =>
+        EnviarJsonAsync(idEstado == null ? HttpMethod.Post : HttpMethod.Put,
+            idEstado == null ? "Estados" : $"Estados/{idEstado}",
+            new { nombre_estado = nombre, es_final = esFinal });
+
+    public Task EliminarEstadoAsync(int idEstado) => EnviarJsonAsync(HttpMethod.Delete, $"Estados/{idEstado}");
+
+    /// <summary>POST /api/Roles (idRol null) o PUT /api/Roles/{id}</summary>
+    public Task GuardarRolAsync(int? idRol, string nombre, bool esAdmin, bool gestionaTareas) =>
+        EnviarJsonAsync(idRol == null ? HttpMethod.Post : HttpMethod.Put,
+            idRol == null ? "Roles" : $"Roles/{idRol}",
+            new { nombre_rol = nombre, is_admin = esAdmin, gestiona_tareas = gestionaTareas });
+
+    public Task EliminarRolAsync(int idRol) => EnviarJsonAsync(HttpMethod.Delete, $"Roles/{idRol}");
+
+    /// <summary>POST /api/Usuarios (idUsuario null) o PUT /api/Usuarios/{id}. La contraseña vacía no se cambia.</summary>
+    public Task GuardarUsuarioAsync(int? idUsuario, string nombre, string correo, int idRol, string? contrasena) =>
+        EnviarJsonAsync(idUsuario == null ? HttpMethod.Post : HttpMethod.Put,
+            idUsuario == null ? "Usuarios" : $"Usuarios/{idUsuario}",
+            new { nombre, correo, id_rol = idRol, contrasena });
+
+    public Task EliminarUsuarioAsync(int idUsuario) => EnviarJsonAsync(HttpMethod.Delete, $"Usuarios/{idUsuario}");
 }

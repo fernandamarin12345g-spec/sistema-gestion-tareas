@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Escritorio</RootNamespace>
     <AssemblyName>GestionTareasEscritorio</AssemblyName>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
   </PropertyGroup>
 
 </Project>
